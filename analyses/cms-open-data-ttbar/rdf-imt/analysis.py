@@ -114,7 +114,7 @@ class TtbarAnalysis(dict):
 
         return fileset
 
-    def fill(self, process, variation):
+    def fill(self, process: str, variation: str):
 
         # all operations are handled by RDataFrame class, so the first step is the RDataFrame object instantiating
         input_data = self.input_data[process][variation]
@@ -259,7 +259,7 @@ class TtbarAnalysis(dict):
         self.hist = []
         for process in self:
             for variation in self.input_data[process]:
-                self.fill(process=process, variation=variation)
+                self.fill(process, variation)
 
     # run 9 Graphs for each data sample
     def Accumulate(self):
