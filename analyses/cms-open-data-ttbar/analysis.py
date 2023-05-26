@@ -2,8 +2,9 @@ import argparse
 import json
 import os
 import time
+from pathlib import Path
 
-from urllib.request import urlretrieve
+from utils import cache_files
 
 PARSER = argparse.ArgumentParser()
 PARSER.add_argument("--ncores",
@@ -30,7 +31,7 @@ PARSER.add_argument("--storage-location", "-l",
                     default="unl", choices=["unl", "cern-xrootd"])
 PARSER.add_argument("--histograms-output-file",
                     help="Name of the output file to store histograms.", default="histograms.root")
-PARSER.add_argument("--download", "-d", help="Download the files locally when executing.", action="store_true")
+PARSER.add_argument("--data-cache", "-d", help="Use the specified directory as a local data cache: required input datasets will be downloaded here and the analysis will read this local copy of the data.")
 PARSER.add_argument("-v", "--verbose", action="store_true")
 ARGS = PARSER.parse_args()
 
@@ -117,11 +118,11 @@ if ARGS.verbose:
 
 class TtbarAnalysis(dict):
 
-    def __init__(self, n_files_max_per_sample, download_input_data, storage_location, num_bins=25, bin_low=50, bin_high=550, connection=None):
+    def __init__(self, n_files_max_per_sample, cache_dir, storage_location, num_bins=25, bin_low=50, bin_high=550, connection=None):
 
         # Store input arguments
         self.n_files_max_per_sample = n_files_max_per_sample  # the number of files to be processed per sample
-        self.download_input_data = download_input_data
+        self.cache_dir = cache_dir
         self.storage_location = storage_location
         self.ntuples_file = "ntuples.json"
         self.num_bins = num_bins
@@ -147,19 +148,6 @@ class TtbarAnalysis(dict):
             "data": None
         }
 
-    def _optionally_download_data(self, file_paths, process, variation):
-        if (self.download_input_data):
-            dir_name = f"input/{process}_{variation}"
-            os.makedirs(dir_name, exist_ok=True)
-            for i in range(len(file_paths)):
-                path = file_paths[i]
-                file = f"{dir_name}/{i}.root"
-                if not os.path.exists(file):
-                    urlretrieve(path, file)
-                    print(f"{file} has been created")
-                else:
-                    print(f"{file} already exists")
-
     def _construct_fileset(self):
 
         with open(self.ntuples_file) as f:
@@ -178,16 +166,19 @@ class TtbarAnalysis(dict):
                 if self.n_files_max_per_sample != -1:
                     file_list = file_list[:self.n_files_max_per_sample]  # use partial set of samples
                 file_paths = [f["path"] for f in file_list]
+                prefix = "https://xrootd-local.unl.edu:1094//store/user/AGC"
+                assert all(f.startswith(prefix) for f in file_paths)
                 if (self.storage_location == "cern-xrootd"):
-                    file_paths = [f.replace("https://xrootd-local.unl.edu:1094//store/user/AGC",
-                                            "root://eoscms.cern.ch//eos/cms/store/test/agc") for f in file_paths]
-
+                    old_prefix, prefix = prefix, "root://eoscms.cern.ch//eos/cms/store/test/agc"
+                    file_paths = [f.replace(old_prefix, prefix) for f in file_paths]
+                if self.cache_dir is not None:
+                    cache_files(file_paths, self.cache_dir, prefix)
+                    old_prefix, prefix = prefix, str(Path(self.cache_dir).absolute())
+                    file_paths = [f.replace(old_prefix, prefix) for f in file_paths]
                 fileset[process].update({variation: file_paths})
                 nevts_total = sum([f["nevts"] for f in file_list])
                 self._nevts_total[process].update({variation: nevts_total})
                 self[process][variation] = {}
-
-                self._optionally_download_data(file_paths, process, variation)
 
         return fileset
 
@@ -384,7 +375,7 @@ class TtbarAnalysis(dict):
 
 def analyse(connection=None):
 
-    analysisManager = TtbarAnalysis(download_input_data=ARGS.download,
+    analysisManager = TtbarAnalysis(cache_dir=ARGS.data_cache,
                                     n_files_max_per_sample=ARGS.n_files_max_per_sample,
                                     storage_location=ARGS.storage_location,
                                     connection=connection)
