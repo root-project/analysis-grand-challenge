@@ -1,4 +1,3 @@
-#include <algorithm>
 #include <string>
 
 #include "ROOT/RVec.hxx"
@@ -31,12 +30,20 @@ TH1D Slice(TH1D h, double low_edge, double high_edge)
    return SliceHisto(h, xfirst, xlast);
 }
 
+// functions creating systematic variations
+inline TRandom &get_thread_local_trandom()
+{
+   thread_local TRandom rng;
+   rng.SetSeed(gRandom->Integer(1000));
+   return rng;
+}
+
 ROOT::VecOps::RVec<float> jet_pt_resolution(std::size_t size)
 {
    // normal distribution with 5% variations, shape matches jets
    ROOT::VecOps::RVec<float> res(size);
    std::generate(std::begin(res), std::end(res), []()
-                 { return gRandom->Gaus(1, 0.05); });
+                 { return get_thread_local_trandom().Gaus(1, 0.05); });
    return res;
 }
 

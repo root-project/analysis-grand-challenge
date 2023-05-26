@@ -2,7 +2,10 @@ The physics analysis task is a $t\bar{t}$ cross-section measurement with 2015 CM
 
 The benchmark assumes the latest ROOT version 6.28 is used. For installation instructions, refer to https://root.cern/install.
 
-The sub-folders represent different modes of execution:
+To run the analysis:
 
-- `rdf-distributed`: run the analysis on one or multiple computing nodes with multiprocessing, leveraging the [Dask](https://www.dask.org/) distributed backend of RDataFrame.
-- `rdf-imt`: run the analysis using the full power of a single machine through implicit multithreading parallelisation, leveraging the native C++ multithreading capabilities within ROOT.
+```
+python analysis.py [OPTIONS ...]
+```
+
+To see the full list of options, run `python analysis.py -h`. RDataFrame supports local or distributed mode, which can be toggled via `--scheduling-mode [imt, dask-local, ...]`.

@@ -3,17 +3,26 @@ import json
 import os
 import time
 
+from typing import Optional
 from urllib.request import urlretrieve
 
-import ROOT
-
-RDataFrame = ROOT.RDataFrame
-RunGraphs = ROOT.RDF.RunGraphs
-VariationsFor = ROOT.RDF.Experimental.VariationsFor
-
 PARSER = argparse.ArgumentParser()
-PARSER.add_argument("--ncores", help="Number of cores to use. Default os.cpu_count().",
-                    type=int, default=os.cpu_count())
+PARSER.add_argument("--ncores",
+                    "-c",
+                    help=("How many cores to use. If choosing a distributed execution, "
+                          "this is the amount of cores per node."),
+                    default = os.cpu_count() // 4,
+                    type=int)
+PARSER.add_argument("--scheduling-mode",
+                    "-s",
+                    help=("The scheduling mode of the analysis. RDataFrame supports "
+                          "both single-node and multi-node parallelization."),
+                    default="imt",
+                    choices=["imt", "dask-local", "dask-ssh"])
+PARSER.add_argument("--nodes", help="String containing the list of hostnames to be used. Useful only in pair with 'dask-ssh'"
+                                    " choice for the '--scheduling-mode' parameter",
+                    type=Optional[str], default=None)
+PARSER.add_argument("--npartitions", help="How many partitions to use.", type=Optional[int], default=None)
 PARSER.add_argument("--n-files-max-per-sample", "-f",
                     help="How many files per sample will be processed. Default -1 (all files for all samples).",
                     type=int, default=-1)
@@ -26,24 +35,89 @@ PARSER.add_argument("--download", "-d", help="Download the files locally when ex
 PARSER.add_argument("-v", "--verbose", action="store_true")
 ARGS = PARSER.parse_args()
 
+import ROOT
+
+if ARGS.scheduling_mode == "imt":
+
+    RDataFrame = ROOT.RDataFrame
+    RunGraphs = ROOT.RDF.RunGraphs
+    VariationsFor = ROOT.RDF.Experimental.VariationsFor
+
+    def init_functions():
+        ROOT.gSystem.CompileMacro("helper.cpp", "kO")
+
+else:
+
+    # Dask configuration useful in distributed mode
+    RDataFrame = ROOT.RDF.Experimental.Distributed.Dask.RDataFrame
+    RunGraphs = ROOT.RDF.Experimental.Distributed.RunGraphs
+    VariationsFor = ROOT.RDF.Experimental.Distributed.VariationsFor
+    initialize = ROOT.RDF.Experimental.Distributed.initialize
+
+    if ARGS.scheduling_mode == "dask-ssh":
+        if not ARGS.nodes:
+            raise ValueError("For SSHCluster deployments, please specify a "
+                             "string with a comma-separated list of hostnames of nodes that will be used.")
+
+        if ARGS.npartitions is None:
+            n_compute_nodes = len(ARGS.nodes.split(",")) - 1
+            ARGS.npartitions = ARGS.ncores * n_compute_nodes
+
+    elif ARGS.scheduling_mode == "dask-local":
+        if ARGS.npartitions is None:
+            ARGS.npartitions = ARGS.ncores
+
+    from distributed import Client, LocalCluster, SSHCluster, get_worker
+
+    def create_localcluster_connection(ncores: int) -> Client:
+        cluster = LocalCluster(n_workers=ncores, threads_per_worker=1, processes=True)
+        client = Client(cluster)
+        return client
+
+    def create_sshcluster_connection(nodes: str, ncores: int) -> Client:
+        parsed_nodes = nodes.split(',')
+        scheduler = parsed_nodes[:1]
+        workers = parsed_nodes[1:]
+
+        print(f"List of nodes: {scheduler=}, {workers=}")
+
+        # The creation of the SSHCluster object needs to be further configured according to needs.
+        # For example, in some clusters the "local_directory" key must be supplied in the worker_options dictionary.
+        cluster = SSHCluster(scheduler + workers,
+                             connect_options={"known_hosts": None},
+                             worker_options={"nprocs": ncores, "nthreads": 1, "memory_limit": "32GB"})
+
+        return Client(cluster)
+
+    def create_connection(nodes: str, ncores: int, scheduling_mode: str) -> Client:
+        if scheduling_mode == "dask-local":
+            return create_localcluster_connection(ncores)
+        elif scheduling_mode == "dask-ssh":
+            return create_sshcluster_connection(nodes, ncores)
+        # Add more cluster types here to accomodate different deployments
+        else:
+            raise ValueError(
+                f"Unexpected scheduling mode '{scheduling_mode}'. Acceptable values are ['dask-local', 'dask-ssh'].")
+
+    def init_functions():
+        try:
+            localdir = get_worker().local_directory
+            helper_path = os.path.join(localdir, "helper.cpp")
+        except ValueError:
+            # get_worker raises an error in case it is called from the local machine
+            # for now work around this by silencing the error.
+            helper_path = "helper.cpp"
+
+        ROOT.gSystem.CompileMacro(helper_path, "kO")
+
 if ARGS.verbose:
     verbosity = ROOT.Experimental.RLogScopedVerbosity(
         ROOT.Detail.RDF.RDFLogChannel(), ROOT.Experimental.ELogLevel.kInfo)
 
 
-def init_functions():
-    ROOT.gSystem.CompileMacro("helper.cpp", "kO")
-    ROOT.gInterpreter.Declare(f"""
-    #ifndef MYPTR
-    #define MYPTR
-    auto pt_res_up_obj = pt_res_up({ROOT.GetThreadPoolSize()});
-    #endif
-    """)
-
-
 class TtbarAnalysis(dict):
 
-    def __init__(self, n_files_max_per_sample, download_input_data, storage_location, num_bins=25, bin_low=50, bin_high=550):
+    def __init__(self, n_files_max_per_sample, download_input_data, storage_location, num_bins=25, bin_low=50, bin_high=550, connection=None):
 
         # Store input arguments
         self.n_files_max_per_sample = n_files_max_per_sample  # the number of files to be processed per sample
@@ -53,6 +127,9 @@ class TtbarAnalysis(dict):
         self.num_bins = num_bins
         self.bin_low = bin_low
         self.bin_high = bin_high
+
+        # Connection handle in case distributed mode was selected
+        self.connection = connection
 
         self.variations = {}  # serves as temporary storage for all histograms produced by VariationsFor
         self._nevts_total = {}
@@ -118,7 +195,11 @@ class TtbarAnalysis(dict):
 
         # all operations are handled by RDataFrame class, so the first step is the RDataFrame object instantiating
         input_data = self.input_data[process][variation]
-        d = RDataFrame("events", input_data)
+        if ARGS.scheduling_mode == "imt":
+            d = RDataFrame("events", input_data)
+        else:
+            d = RDataFrame("events", input_data, daskclient=self.connection, npartitions=ARGS.npartitions)
+            d._headnode.backend.distribute_unique_paths(["helper.cpp", ])
 
         # normalization for MC
         x_sec = self.xsec_info[process]
@@ -135,7 +216,7 @@ class TtbarAnalysis(dict):
             # pt_res_up(jet_pt) - jet resolution systematic
 
             d = d.Vary("jet_pt",
-                       "ROOT::RVec<ROOT::RVecF>{jet_pt*pt_scale_up(), jet_pt*pt_res_up_obj(jet_pt, rdfslot_)}",
+                       "ROOT::RVec<ROOT::RVecF>{jet_pt*pt_scale_up(), jet_pt*jet_pt_resolution(jet_pt.size())}",
                        ["pt_scale_up", "pt_res_up"])
             if process == "wjets":
 
@@ -301,11 +382,12 @@ class TtbarAnalysis(dict):
             json.dump(data, f)
 
 
-def analyse():
-    init_functions()
+def analyse(connection=None):
+
     analysisManager = TtbarAnalysis(download_input_data=ARGS.download,
                                     n_files_max_per_sample=ARGS.n_files_max_per_sample,
-                                    storage_location=ARGS.storage_location)
+                                    storage_location=ARGS.storage_location,
+                                    connection=connection)
 
     # At this stage, analysisManager keeps all file URLs:
     print(f"processes in fileset: {list(analysisManager.keys())}")
@@ -422,10 +504,23 @@ def make_plots(analysisManager):
 
 
 def main():
-    ROOT.EnableImplicitMT(ARGS.ncores)
-    print(f"The num of threads = {ROOT.GetThreadPoolSize()}")
-    results = analyse()
+
+    if ARGS.scheduling_mode == "imt":
+        init_functions()
+        ROOT.EnableImplicitMT(ARGS.ncores)
+        print(f"The num of threads = {ROOT.GetThreadPoolSize()}")
+        # No handle needed in local mode
+        connection = None
+    else:
+        initialize(init_functions)
+        # Create connection to the cluster in distributed mode
+        connection = create_connection(ARGS.nodes, ARGS.ncores, ARGS.scheduling_mode)
+
+    results = analyse(connection)
     make_plots(results)
+
+    if connection is not None:
+        connection.close()
 
 
 if __name__ == "__main__":
