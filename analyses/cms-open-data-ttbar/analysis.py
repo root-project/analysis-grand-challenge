@@ -35,7 +35,8 @@ PARSER.add_argument("--download", "-d", help="Download the files locally when ex
 PARSER.add_argument("-v", "--verbose", action="store_true")
 ARGS = PARSER.parse_args()
 
-import ROOT
+# importing ROOT takes a little while, so we only do it if argument parsing succeeded
+import ROOT # noqa: {E402}
 
 if ARGS.scheduling_mode == "imt":
 
