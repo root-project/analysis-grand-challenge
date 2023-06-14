@@ -1,0 +1,3 @@
+[tool.ruff]
+# ignore long lines
+ignore = ["E501"]
