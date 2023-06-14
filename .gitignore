@@ -6,3 +6,4 @@
 *.d
 *.so
 data.json
+__pycache__
