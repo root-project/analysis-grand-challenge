@@ -3,7 +3,6 @@ import json
 import os
 import time
 
-from typing import Optional
 from urllib.request import urlretrieve
 
 PARSER = argparse.ArgumentParser()
@@ -21,8 +20,8 @@ PARSER.add_argument("--scheduling-mode",
                     choices=["imt", "dask-local", "dask-ssh"])
 PARSER.add_argument("--nodes", help="String containing the list of hostnames to be used. Useful only in pair with 'dask-ssh'"
                                     " choice for the '--scheduling-mode' parameter",
-                    type=Optional[str], default=None)
-PARSER.add_argument("--npartitions", help="How many partitions to use.", type=Optional[int], default=None)
+                    type=str, default=None)
+PARSER.add_argument("--npartitions", help="How many partitions to use.", type=int, default=None)
 PARSER.add_argument("--n-files-max-per-sample", "-f",
                     help="How many files per sample will be processed. Default -1 (all files for all samples).",
                     type=int, default=-1)
