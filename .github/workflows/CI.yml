@@ -20,3 +20,5 @@ jobs:
         with:
           fetch-depth: 0
       - uses: jpetrucciani/ruff-check@main
+      - run: pip install mypy
+      - run: mypy .
