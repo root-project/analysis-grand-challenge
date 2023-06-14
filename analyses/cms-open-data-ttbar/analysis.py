@@ -10,7 +10,7 @@ PARSER.add_argument("--ncores",
                     "-c",
                     help=("How many cores to use. If choosing a distributed execution, "
                           "this is the amount of cores per node."),
-                    default = os.cpu_count() // 4,
+                    default = len(os.sched_getaffinity(0)),
                     type=int)
 PARSER.add_argument("--scheduling-mode",
                     "-s",
