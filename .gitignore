@@ -1,8 +1,8 @@
-**/*.root
-**/*.pdf
-**/*.npz
-**/*.png
-**/*.pcm
-**/*.d
-**/*.so
-**/data.json
+*.root
+*.pdf
+*.npz
+*.png
+*.pcm
+*.d
+*.so
+data.json
