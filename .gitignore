@@ -7,3 +7,4 @@
 *.so
 data.json
 __pycache__
+tags
