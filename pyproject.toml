@@ -5,3 +5,6 @@ ignore = ["E501"]
 [tool.mypy]
 ignore_missing_imports = true
 follow_imports = "silent"
+
+[tool.black]
+line-length = 100
