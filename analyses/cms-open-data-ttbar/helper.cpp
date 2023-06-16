@@ -7,7 +7,7 @@
 // functions slicing histograms
 
 // accept numbers of bins as parameters
-TH1D SliceHisto(TH1D h, int xfirst, int xlast)
+TH1D SliceHisto(const TH1D &h, int xfirst, int xlast)
 {
 
    // do slice in xfirst:xlast including xfirst and xlast
@@ -23,7 +23,7 @@ TH1D SliceHisto(TH1D h, int xfirst, int xlast)
 }
 
 // accept axis limits as parameters
-TH1D Slice(TH1D h, double low_edge, double high_edge)
+TH1D Slice(TH1D &h, double low_edge, double high_edge)
 {
    int xfirst = h.FindBin(low_edge);
    int xlast = h.FindBin(high_edge);
