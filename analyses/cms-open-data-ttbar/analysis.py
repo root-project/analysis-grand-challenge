@@ -293,7 +293,7 @@ class TtbarAnalysis(dict):
                 # trijet_btag is a helpful array of bool values indicating whether or not the maximum btag value in trijet is larger than 0.5 threshold
                 fork = fork.Define("trijet_btag",
                                    """
-                                   ROOT::VecOps::RVec<bool> btag(ntrijet);
+                                   ROOT::RVecB btag(ntrijet);
                                    for (int i = 0; i < ntrijet; ++i)
                                    {
                                        int j1 = trijet[0][i];
