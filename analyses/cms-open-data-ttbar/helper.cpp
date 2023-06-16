@@ -38,10 +38,10 @@ inline TRandom &get_thread_local_trandom()
    return rng;
 }
 
-ROOT::VecOps::RVec<float> jet_pt_resolution(std::size_t size)
+ROOT::RVecF jet_pt_resolution(std::size_t size)
 {
    // normal distribution with 5% variations, shape matches jets
-   ROOT::VecOps::RVec<float> res(size);
+   ROOT::RVecF res(size);
    std::generate(std::begin(res), std::end(res), []()
                  { return get_thread_local_trandom().Gaus(1, 0.05); });
    return res;
@@ -52,10 +52,10 @@ float pt_scale_up()
    return 1.03;
 }
 
-ROOT::VecOps::RVec<float> btag_weight_variation(const ROOT::VecOps::RVec<float> &jet_pt)
+ROOT::RVecF btag_weight_variation(const ROOT::RVecF &jet_pt)
 {
    // weight variation depending on i-th jet pT (7.5% as default value, multiplied by i-th jet pT / 50 GeV)
-   ROOT::VecOps::RVec<float> res;
+   ROOT::RVecF res;
    for (const float &pt : ROOT::VecOps::Take(jet_pt, 4))
    {
       res.push_back(1 + .075 * pt / 50);
@@ -64,8 +64,8 @@ ROOT::VecOps::RVec<float> btag_weight_variation(const ROOT::VecOps::RVec<float> 
    return res;
 }
 
-ROOT::VecOps::RVec<float> flat_variation()
+ROOT::RVecF flat_variation()
 {
    // 2.5% weight variations
-   return 1 + ROOT::VecOps::RVec<float>({.025, -.025});
+   return 1 + ROOT::RVecF({.025, -.025});
 }
