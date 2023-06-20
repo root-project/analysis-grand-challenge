@@ -1,5 +1,5 @@
 import ROOT
-from utils import AGCResult, slice_and_rebin
+from utils import AGCResult
 
 
 def save_plots(results: list[AGCResult]):
@@ -10,13 +10,14 @@ def save_plots(results: list[AGCResult]):
 
     # Region 1 stack
     hlist = [r.histo for r in results if r.region == "4j1b" and r.variation == "nominal"]
-    hlist = [slice_and_rebin(h) for h in hlist]
+    hlist = [h.Clone().Rebin(2) for h in hlist]
     hs = ROOT.THStack("j4b1", ">=4 jets, 1 b-tag; H_{T} [GeV]")
     for h in hlist:
         hs.Add(h)
     hs.Draw("hist pfc plc")
     c.Draw()
     x = hs.GetXaxis()
+    x.SetRangeUser(120, x.GetXmax())
     x.SetTitleOffset(1.5)
     x.CenterTitle()
     c.BuildLegend(0.65, 0.7, 0.9, 0.9)
@@ -57,7 +58,7 @@ def save_plots(results: list[AGCResult]):
     hs.Draw("hist nostack plc")
     c.Draw()
     x = hs.GetXaxis()
-    x.SetRangeUser(120, 500)
+    x.SetRangeUser(120, x.GetXmax())
     x.SetTitleOffset(1.5)
     x.CenterTitle()
     c.BuildLegend(0.65, 0.7, 0.9, 0.9)
