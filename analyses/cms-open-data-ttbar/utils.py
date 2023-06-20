@@ -7,28 +7,6 @@ from urllib.request import urlretrieve
 import ROOT
 from tqdm import tqdm
 
-# Declare a Slice helper C++ function
-ROOT.gInterpreter.Declare(
-    """
-TH1D Slice(TH1D &h, double low_edge, double high_edge)
-{
-   int xfirst = h.FindBin(low_edge);
-   int xlast = h.FindBin(high_edge);
-
-   // do slice in xfirst:xlast including xfirst and xlast
-   TH1D res(h.GetName(), h.GetTitle(), xlast - xfirst,
-            h.GetXaxis()->GetBinLowEdge(xfirst), h.GetXaxis()->GetBinUpEdge(xlast - 1));
-   // note that histogram arrays are : [ undeflow, bin1, bin2,....., binN, overflow]
-   std::copy(h.GetArray() + xfirst, h.GetArray() + xlast, res.GetArray() + 1);
-   // set correct underflow/overflows
-   res.SetBinContent(0, h.Integral(0, xfirst - 1));                              // set underflow value
-   res.SetBinContent(res.GetNbinsX() + 1, h.Integral(xlast, h.GetNbinsX() + 1)); // set overflow value
-
-   return res;
-}
-"""
-)
-
 
 @dataclass
 class AGCInput:
@@ -162,12 +140,7 @@ def postprocess_results(results: list[AGCResult]):
     return new_results
 
 
-# Apply slicing and rebinning similar to the reference implementation
-def slice_and_rebin(h: ROOT.TH1D) -> ROOT.TH1D:
-    return ROOT.Slice(h, 120.0, 550.0).Rebin(2)
-
-
 def save_histos(results: list[ROOT.TH1D], output_fname: str):
     with ROOT.TFile.Open(output_fname, "recreate") as out_file:
         for result in results:
-            out_file.WriteObject(slice_and_rebin(result), result.GetName())
+            out_file.WriteObject(result, result.GetName())
