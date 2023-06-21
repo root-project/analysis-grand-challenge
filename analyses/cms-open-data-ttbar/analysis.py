@@ -136,11 +136,11 @@ def define_trijet_mass(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
         df.Define(
         "Jet_p4",
         """
-        "ROOT::VecOps::Construct<ROOT::Math::PxPyPzMVector>(
+        ROOT::VecOps::Construct<ROOT::Math::PxPyPzMVector>(
             ROOT::VecOps::Construct<ROOT::Math::PtEtaPhiMVector>(
                 Jet_pt[Jet_pt_mask], Jet_eta[Jet_pt_mask], Jet_phi[Jet_pt_mask], Jet_mass[Jet_pt_mask]
             )
-        )"
+        )
         """,
         )
     )
@@ -153,7 +153,7 @@ def define_trijet_mass(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
     df = df.Define(
         "Trijet_p4",
         """
-        ROOT::RVec<ROOT::Math::PxPyPzMVector> Trijet_p4(ntrijet);
+        ROOT::RVec<ROOT::Math::PxPyPzMVector> Trijet_p4(nTrijet);
         for (int i = 0; i < nTrijet; ++i)
         {
             int j1 = Trijet[0][i];
@@ -219,7 +219,7 @@ def book_histos(
     x_sec = XSEC_INFO[process]
     lumi = 3378  # /pb
     xsec_weight = x_sec * lumi / nevents
-    df = df.Define("weights", str(xsec_weight))  # default weights
+    df = df.Define("Weights", str(xsec_weight))  # default weights
 
     if variation == "nominal":
         # Jet_pt variations definition
