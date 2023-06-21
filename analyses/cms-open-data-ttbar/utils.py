@@ -68,7 +68,7 @@ def retrieve_inputs(
     max_files_per_sample: Optional[int],
     remote_data_prefix: Optional[str],
     data_cache: Optional[str],
-    input_json: Path = Path("ntuples.json"),
+    input_json: Path = Path("nanoaod_inputs.json"),
 ) -> list[AGCInput]:
     """Return a dictionary of file paths and a corresponding dictionary of event counts.
     Both are 2-level dictionaries: there is a dictionary per process per variation.
