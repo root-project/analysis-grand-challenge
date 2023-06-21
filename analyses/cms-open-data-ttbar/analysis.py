@@ -113,7 +113,7 @@ def make_rdf(
     """Construct and return a dataframe or, if a dask client is present, a distributed dataframe."""
     if client is not None:
         d = ROOT.RDF.Experimental.Distributed.Dask.RDataFrame(
-            "events", files, daskclient=client, npartitions=npartitions
+            "Events", files, daskclient=client, npartitions=npartitions
         )
         d._headnode.backend.distribute_unique_paths(
             [
@@ -122,61 +122,66 @@ def make_rdf(
         )
         return d
 
-    return ROOT.RDataFrame("events", files)
+    return ROOT.RDataFrame("Events", files)
 
 
 def define_trijet_mass(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
     """Add the trijet_mass observable to the dataframe after applying the appropriate selections."""
 
     # First, select events with at least 2 b-tagged jets
-    df = df.Filter("Sum(jet_btag[jet_pt_mask]>=0.5)>1")
+    df = df.Filter("Sum(Jet_btagCSVV2[Jet_pt_mask]>0.5)>1")
 
     # Build four-momentum vectors for each jet
-    df = df.Define(
-        "jet_p4",
+    df = (  
+        df.Define(
+        "Jet_p4",
         """
         ROOT::VecOps::Construct<ROOT::Math::PxPyPzMVector>(
-            jet_px[jet_pt_mask], jet_py[jet_pt_mask], jet_pz[jet_pt_mask], jet_mass[jet_pt_mask])
+            ROOT::VecOps::Construct<ROOT::Math::PtEtaPhiMVector>(
+                Jet_pt[Jet_pt_mask], Jet_eta[Jet_pt_mask], Jet_phi[Jet_pt_mask], Jet_mass[Jet_pt_mask]
+            )
+        )
         """,
+        )
     )
 
     # Build trijet combinations
-    df = df.Define("trijet", "ROOT::VecOps::Combinations(jet_pt[jet_pt_mask],3)")
-    df = df.Define("ntrijet", "trijet[0].size()")
+    df = df.Define("Trijet", "ROOT::VecOps::Combinations(Jet_pt[Jet_pt_mask],3)")
+    df = df.Define("nTrijet", "Trijet[0].size()")
 
     # Assign four-momentums to each trijet combination
     df = df.Define(
-        "trijet_p4",
+        "Trijet_p4",
         """
-        ROOT::RVec<ROOT::Math::PxPyPzMVector> trijet_p4(ntrijet);
-        for (int i = 0; i < ntrijet; ++i)
+        ROOT::RVec<ROOT::Math::PxPyPzMVector> Trijet_p4(nTrijet);
+        for (int i = 0; i < nTrijet; ++i)
         {
-            int j1 = trijet[0][i];
-            int j2 = trijet[1][i];
-            int j3 = trijet[2][i];
-            trijet_p4[i] = jet_p4[j1] + jet_p4[j2] + jet_p4[j3];
+            int j1 = Trijet[0][i];
+            int j2 = Trijet[1][i];
+            int j3 = Trijet[2][i];
+            Trijet_p4[i] = Jet_p4[j1] + Jet_p4[j2] + Jet_p4[j3];
         }
-        return trijet_p4;
+        return Trijet_p4;
         """,
     )
 
     # Get trijet transverse momentum values from four-momentum vectors
     df = df.Define(
-        "trijet_pt",
-        "return ROOT::VecOps::Map(trijet_p4, [](ROOT::Math::PxPyPzMVector v) { return v.Pt(); })",
+        "Trijet_pt",
+        "return ROOT::VecOps::Map(Trijet_p4, [](const ROOT::Math::PxPyPzMVector &v) { return v.Pt(); })",
     )
 
     # trijet_btag is a helpful array of bool values indicating whether or not the maximum btag value in trijet is larger than 0.5 threshold
     df = df.Define(
-        "trijet_btag",
+        "Trijet_btag",
         """
-        ROOT::RVecB btag(ntrijet);
-        for (int i = 0; i < ntrijet; ++i)
+        ROOT::RVecB btag(nTrijet);
+        for (int i = 0; i < nTrijet; ++i)
         {
-            int j1 = trijet[0][i];
-            int j2 = trijet[1][i];
-            int j3 = trijet[2][i];
-            btag[i] = std::max({jet_btag[j1], jet_btag[j2], jet_btag[j3]}) > 0.5;
+            int j1 = Trijet[0][i];
+            int j2 = Trijet[1][i];
+            int j3 = Trijet[2][i];
+            btag[i] = std::max({Jet_btagCSVV2[Jet_pt_mask][j1], Jet_btagCSVV2[Jet_pt_mask][j2], Jet_btagCSVV2[Jet_pt_mask][j3]}) > 0.5;
         }
         return btag;
         """,
@@ -184,18 +189,18 @@ def define_trijet_mass(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
 
     # Evaluate mass of trijet with maximum pt and btag higher than threshold
     df = df.Define(
-        "trijet_mass",
+        "Trijet_mass",
         """
         double mass{};
         double Pt{};
         double indx{};
-        for (int i = 0; i < ntrijet; ++i) {
-            if ((Pt < trijet_pt[i]) && (trijet_btag[i])) {
-                Pt = trijet_pt[i];
+        for (int i = 0; i < nTrijet; ++i) {
+            if ((Pt < Trijet_pt[i]) && (Trijet_btag[i])) {
+                Pt = Trijet_pt[i];
                 indx = i;
             }
         }
-        mass = trijet_p4[indx].M();
+        mass = Trijet_p4[indx].M();
         return mass;
         """,
     )
@@ -214,7 +219,7 @@ def book_histos(
     x_sec = XSEC_INFO[process]
     lumi = 3378  # /pb
     xsec_weight = x_sec * lumi / nevents
-    df = df.Define("weights", str(xsec_weight))  # default weights
+    df = df.Define("Weights", str(xsec_weight))  # default weights
 
     if variation == "nominal":
         # Jet_pt variations definition
@@ -222,16 +227,16 @@ def book_histos(
         # pt_scale_up() - jet energy scaly systematic
         # pt_res_up(jet_pt) - jet resolution systematic
         df = df.Vary(
-            "jet_pt",
-            "ROOT::RVec<ROOT::RVecF>{jet_pt*pt_scale_up(), jet_pt*jet_pt_resolution(jet_pt.size())}",
+            "Jet_pt",
+            "ROOT::RVec<ROOT::RVecF>{Jet_pt*pt_scale_up(), Jet_pt*jet_pt_resolution(Jet_pt.size())}",
             ["pt_scale_up", "pt_res_up"],
         )
 
         if process == "wjets":
             # Flat weight variation definition
             df = df.Vary(
-                "weights",
-                "weights*flat_variation()",
+                "Weights",
+                "Weights*flat_variation()",
                 [f"scale_var_{direction}" for direction in ["up", "down"]],
             )
 
@@ -239,19 +244,18 @@ def book_histos(
     # Selecting events containing at least one lepton and four jets with pT > 25 GeV
     # Applying requirement at least one of them must be b-tagged jet (see details in the specification)
     df = (
-        df.Define("electron_pt_mask", "electron_pt>25")
-        .Define("muon_pt_mask", "muon_pt>25")
-        .Define("jet_pt_mask", "jet_pt>25")
-        .Filter("Sum(electron_pt_mask) + Sum(muon_pt_mask) == 1")
-        .Filter("Sum(jet_pt_mask) >= 4")
-        .Filter("Sum(jet_btag[jet_pt_mask]>=0.5)>=1")
+        df.Define("Electron_pt_mask", "Electron_pt>25")
+        .Define("Muon_pt_mask", "Muon_pt>25")
+        .Define("Jet_pt_mask", "Jet_pt>25")
+        .Filter("Sum(Electron_pt_mask) + Sum(Muon_pt_mask) == 1")
+        .Filter("Sum(Jet_pt_mask) >= 4")
     )
 
     # b-tagging variations for nominal samples
     if variation == "nominal":
         df = df.Vary(
-            "weights",
-            "ROOT::RVecD{weights*btag_weight_variation(jet_pt[jet_pt_mask])}",
+            "Weights",
+            "ROOT::RVecD{Weights*btag_weight_variation(Jet_pt[Jet_pt_mask])}",
             [
                 f"{weight_name}_{direction}"
                 for weight_name in [f"btag_var_{i}" for i in range(4)]
@@ -263,8 +267,11 @@ def book_histos(
     # Only one b-tagged region required
     # The observable is the total transvesre momentum
     # fmt: off
-    df4j1b = df.Filter("Sum(jet_btag[jet_pt_mask]>=0.5)==1")\
-               .Define("HT", "Sum(jet_pt[jet_pt_mask])")
+
+    # not strict condition is used because the same selection cut is applied in the reference implementation
+    # https://github.com/iris-hep/analysis-grand-challenge/blob/main/analyses/cms-open-data-ttbar/ttbar_analysis_pipeline.py#L254
+    df4j1b = df.Filter("Sum(Jet_btagCSVV2[Jet_pt_mask]>=0.5)==1")\
+               .Define("HT", "Sum(Jet_pt[Jet_pt_mask])")
     # fmt: on
 
     # Define trijet_mass observable for the 4j2b region (this one is more complicated)
@@ -278,11 +285,12 @@ def book_histos(
 
     # Book histograms and, if needed, their systematic variations
     results = []
-    for df, observable, region in zip([df4j1b, df4j2b], ["HT", "trijet_mass"], ["4j1b", "4j2b"]):
+    for df, observable, region in zip([df4j1b, df4j2b], ["HT", "Trijet_mass"], ["4j1b", "4j2b"]):
         histo_model = ROOT.RDF.TH1DModel(
             name=f"{region}_{process}_{variation}", title=process, nbinsx=25, xlow=50, xup=550
         )
-        nominal_histo = df.Histo1D(histo_model, observable, "weights")
+        nominal_histo = df.Histo1D(histo_model, observable, "Weights")
+
         if variation == "nominal":
             varied_histos = variationsfor_func(nominal_histo)
             results.append(AGCResult(varied_histos, region, process, variation, nominal_histo))
