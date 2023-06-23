@@ -9,6 +9,10 @@ import numpy as np
 import sys
 import uproot
 
+order = 3
+rtol=float(f'1e-{order}')
+atol=1e-5
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--histos", help="ROOT file containing the output histograms. Defaults to './histograms.root'.", default="histograms.root")
@@ -33,6 +37,7 @@ def as_dict(f: uproot.ReadOnlyDirectory) -> dict[str, dict]:
 
 def validate(histos: dict, reference: dict) -> dict[str, list[str]]:
     errors = defaultdict(list)
+    discreps = {}
     for name, ref_h in reference.items():
         if 'pseudodata' in name: continue
         if name not in histos:
@@ -46,10 +51,11 @@ def validate(histos: dict, reference: dict) -> dict[str, list[str]]:
         if not np.allclose(h['edges'], ref_h['edges']):
             errors[name].append(f"Edges do not match:\n\tgot      {h['edges']}\n\texpected {ref_h['edges']}")
         contents_depend_on_rng = "pt_res_up" in name # skip checking the contents of these histograms as they are not stable
-        if not contents_depend_on_rng and not np.allclose(h['contents'], ref_h['contents'], rtol=1e-2,atol=1e-5):
+        if not contents_depend_on_rng and not np.allclose(h['contents'], ref_h['contents'], rtol=rtol,atol=atol):
             errors[name].append(f"Contents do not match:\n\tgot      {h['contents']}\n\texpected {ref_h['contents']}")
+            discreps[name]=(np.array(ref_h['contents'])-np.array(h['contents']))/np.array(ref_h['contents'])
 
-    return errors
+    return errors,discreps
 
 if __name__ == "__main__":
     args = parse_args()
@@ -64,11 +70,15 @@ if __name__ == "__main__":
         ref_histos = json.load(reference)
 
     print(f"Validating '{args.histos}' against reference '{args.reference}'...")
-    errs = validate(histos=histos, reference=ref_histos)
+    errs,discreps = validate(histos=histos, reference=ref_histos)
     if len(errs) == 0:
         print("All good!")
     else:
         for hist_name, errors in errs.items():
             errors = '\n\t'.join(errors)
             print(f"{hist_name}\n\t{errors}")
+        print(f'Summary for tolerance {rtol*100}%')
+        summary = {k:np.round(np.max(v)*100,order) for k,v in discreps.items()}
+        for name, err in summary.items():
+            print("{:<50} {:<5}%".format(name,err))
         sys.exit(1)
