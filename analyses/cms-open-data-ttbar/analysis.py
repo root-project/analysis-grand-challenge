@@ -391,8 +391,8 @@ def main() -> None:
 
     # Run the event loops for all processes and variations here
     run_graphs_start = time()
-    run_graphs([r.nominal_histo for r in results + ml_results])
-
+    n_computation_graphs_run = run_graphs([r.nominal_histo for r in results + ml_results])
+    assert n_computation_graphs_run == 9
     print(f"Executing the computation graphs took {time() - run_graphs_start:.2f} seconds")
     if client is not None:
         client.close()
