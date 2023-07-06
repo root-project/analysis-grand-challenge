@@ -313,6 +313,8 @@ def main() -> None:
 
     # Do not add histograms to TDirectories automatically: we'll do it ourselves as needed.
     ROOT.TH1.AddDirectory(False)
+    # Disable interactive graphics: avoids canvases flashing on screen before we save them to file
+    ROOT.gROOT.SetBatch(True)
 
     if args.verbose:
         # Set higher RDF verbosity for the rest of the program.
