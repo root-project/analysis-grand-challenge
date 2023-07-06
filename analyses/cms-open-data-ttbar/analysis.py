@@ -273,9 +273,9 @@ def book_histos(
         nominal_histo = df.Histo1D(histo_model, observable, "Weights")
 
         if variation == "nominal":
-            results.append(AGCResult(nominal_histo, region, process, variation, nominal_histo, should_vary=True))
+            results.append(AGCResult(nominal_histo, region, process, variation, should_vary=True))
         else:
-            results.append(AGCResult(nominal_histo, region, process, variation, nominal_histo, should_vary=False))
+            results.append(AGCResult(nominal_histo, region, process, variation, should_vary=False))
         print(f"Booked histogram {histo_model.fName}")
 
     ml_results: list[AGCResult] = []
@@ -300,11 +300,11 @@ def book_histos(
 
         if variation == "nominal":
             ml_results.append(
-                AGCResult(nominal_histo, feature.name, process, variation, nominal_histo, should_vary=True)
+                AGCResult(nominal_histo, feature.name, process, variation, should_vary=True)
             )
         else:
             ml_results.append(
-                AGCResult(nominal_histo, feature.name, process, variation, nominal_histo, should_vary=False)
+                AGCResult(nominal_histo, feature.name, process, variation, should_vary=False)
             )
         print(f"Booked histogram {histo_model.fName}")
 
@@ -391,7 +391,7 @@ def main() -> None:
 
     # Run the event loops for all processes and variations here
     run_graphs_start = time()
-    n_computation_graphs_run = run_graphs([r.nominal_histo for r in results + ml_results])
+    n_computation_graphs_run = run_graphs([r.histo for r in results + ml_results])
     assert n_computation_graphs_run == 9
     print(f"Executing the computation graphs took {time() - run_graphs_start:.2f} seconds")
     if client is not None:
