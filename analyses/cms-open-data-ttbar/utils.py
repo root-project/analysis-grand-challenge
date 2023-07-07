@@ -111,7 +111,7 @@ def retrieve_inputs(
 
 def postprocess_results(results: list[AGCResult]):
     """Extract TH1D objects from list of RDF's ResultPtrs and RResultMaps.
-    The function also gives appropriate names to each varied histogram and slices them and rebins them as needed.
+    The function also gives appropriate names to each varied histogram.
     """
 
     # Substitute RResultPtrs and RResultMaps of histograms to actual histograms
