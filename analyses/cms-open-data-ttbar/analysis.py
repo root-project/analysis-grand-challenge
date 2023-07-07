@@ -298,6 +298,8 @@ def book_histos(
 def load_cpp():
     """Load C++ helper functions. Works for both local and distributed execution."""
     try:
+        # when using distributed RDataFrame 'helpers.cpp' is copied to the local_directory
+        # of every worker (via `distribute_unique_paths`)
         localdir = get_worker().local_directory
         cpp_source = Path(localdir) / "helpers.cpp"
     except ValueError:
