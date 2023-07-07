@@ -2,6 +2,6 @@ name: root-agc
 channels:
   - conda-forge
 dependencies:
-  - python=3
+  - python>=3.9
   - root
   - distributed
