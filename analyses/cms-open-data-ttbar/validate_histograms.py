@@ -9,8 +9,8 @@ import numpy as np
 import sys
 import uproot
 
-order = 3
-rtol=float(f'1e-{order}')
+
+rtol=1e-6
 atol=1e-5
 
 def parse_args() -> argparse.Namespace:
@@ -41,11 +41,8 @@ def validate(histos: dict, reference: dict) -> dict[str, list[str]]:
     for name, ref_h in reference.items():
         if 'pseudodata' in name: continue
         if name not in histos:
-            if name+'_nominal' not in histos:
-                errors[name].append("Histogram not found.")
-                continue
-            else:
-                name+='_nominal'
+            errors[name].append("Histogram not found.")
+            continue
 
         h = histos[name]
         if not np.allclose(h['edges'], ref_h['edges']):
@@ -53,7 +50,11 @@ def validate(histos: dict, reference: dict) -> dict[str, list[str]]:
         contents_depend_on_rng = "pt_res_up" in name # skip checking the contents of these histograms as they are not stable
         if not contents_depend_on_rng and not np.allclose(h['contents'], ref_h['contents'], rtol=rtol,atol=atol):
             errors[name].append(f"Contents do not match:\n\tgot      {h['contents']}\n\texpected {ref_h['contents']}")
-            discreps[name]=(np.array(ref_h['contents'])-np.array(h['contents']))/np.array(ref_h['contents'])
+            diff = abs(np.array(ref_h['contents'])-np.array(h['contents']))
+            idx = np.argmax(diff)
+            aerr = diff[idx]
+            rerr = diff[idx]/ref_h['contents'][idx]
+            discreps[name]=[aerr,rerr]
 
     return errors,discreps
 
@@ -77,8 +78,9 @@ if __name__ == "__main__":
         for hist_name, errors in errs.items():
             errors = '\n\t'.join(errors)
             print(f"{hist_name}\n\t{errors}")
-        print(f'Summary for tolerance {rtol*100}%')
-        summary = {k:np.round(np.max(v)*100,order) for k,v in discreps.items()}
-        for name, err in summary.items():
-            print("{:<50} {:<5}%".format(name,err))
+        print(f'Summary')
+        print("{:<40} {:<20} {:<20}".format('Hist name', 'Absolute error', 'Relative error'))
+        for name, err in discreps.items():
+            print("{:<40} {:<20} {:<20}".format(name, round(err[0],int(np.log10(1/atol))), round(err[1],int(np.log10(1/atol))) ))
+            # print(err)
         sys.exit(1)

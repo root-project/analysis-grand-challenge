@@ -129,7 +129,7 @@ def define_trijet_mass(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
     """Add the trijet_mass observable to the dataframe after applying the appropriate selections."""
 
     # First, select events with at least 2 b-tagged jets
-    df = df.Filter("Sum(Jet_btagCSVV2[Jet_pt_mask]>=0.5)>1")
+    df = df.Filter("Sum(Jet_btagCSVV2[Jet_pt_mask]>0.5)>1")
 
     # Build four-momentum vectors for each jet
     df = (  
@@ -168,7 +168,7 @@ def define_trijet_mass(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
     # Get trijet transverse momentum values from four-momentum vectors
     df = df.Define(
         "Trijet_pt",
-        "return ROOT::VecOps::Map(Trijet_p4, [](ROOT::Math::PxPyPzMVector v) { return v.Pt(); })",
+        "return ROOT::VecOps::Map(Trijet_p4, [](const ROOT::Math::PxPyPzMVector &v) { return v.Pt(); })",
     )
 
     # trijet_btag is a helpful array of bool values indicating whether or not the maximum btag value in trijet is larger than 0.5 threshold
@@ -181,7 +181,7 @@ def define_trijet_mass(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
             int j1 = Trijet[0][i];
             int j2 = Trijet[1][i];
             int j3 = Trijet[2][i];
-            btag[i] = std::max({Jet_btagCSVV2[j1], Jet_btagCSVV2[j2], Jet_btagCSVV2[j3]}) > 0.5;
+            btag[i] = std::max({Jet_btagCSVV2[Jet_pt_mask][j1], Jet_btagCSVV2[Jet_pt_mask][j2], Jet_btagCSVV2[Jet_pt_mask][j3]}) > 0.5;
         }
         return btag;
         """,
@@ -249,7 +249,6 @@ def book_histos(
         .Define("Jet_pt_mask", "Jet_pt>25")
         .Filter("Sum(Electron_pt_mask) + Sum(Muon_pt_mask) == 1")
         .Filter("Sum(Jet_pt_mask) >= 4")
-        .Filter("Sum(Jet_btagCSVV2[Jet_pt_mask]>=0.5)>=1")
     )
 
     # b-tagging variations for nominal samples
