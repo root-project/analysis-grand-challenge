@@ -147,23 +147,32 @@ def define_trijet_mass(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
 
     # Build trijet combinations
     df = df.Define("Trijet", "ROOT::VecOps::Combinations(Jet_pt[Jet_pt_mask],3)")
-    df = df.Define("nTrijet", "Trijet[0].size()")
+
+    
+    # trijet_btag is a helpful array of bool values indicating whether or not the maximum btag value in trijet is larger than 0.5 threshold
+    df = df.Define(
+            "Trijet_btag",
+            """
+            auto Jet_btagCSVV2_masked = Jet_btagCSVV2[Jet_pt_mask];
+            auto J1_btagCSVV2 = ROOT::VecOps::Take(Jet_btagCSVV2_masked, Trijet[0]);
+            auto J2_btagCSVV2 = ROOT::VecOps::Take(Jet_btagCSVV2_masked, Trijet[1]);
+            auto J3_btagCSVV2 = ROOT::VecOps::Take(Jet_btagCSVV2_masked, Trijet[2]);
+            return (J1_btagCSVV2>0.5)||(J2_btagCSVV2>0.5)||(J3_btagCSVV2>0.5);
+            """
+            # FIXME 
+            # Do insteam something like max(J1_btag,J2_btag, Jt3_btag)>0.5. 
+            # Do I need to define custom function max(RVec 1, RVec2, RVec3)?
+        )
 
     # Assign four-momentums to each trijet combination
-    df = df.Define(
-        "Trijet_p4",
-        """
-        ROOT::RVec<ROOT::Math::PxPyPzMVector> Trijet_p4(nTrijet);
-        for (int i = 0; i < nTrijet; ++i)
-        {
-            int j1 = Trijet[0][i];
-            int j2 = Trijet[1][i];
-            int j3 = Trijet[2][i];
-            Trijet_p4[i] = Jet_p4[j1] + Jet_p4[j2] + Jet_p4[j3];
-        }
-        return Trijet_p4;
-        """,
+    df = (
+        df.Define('J1', 'ROOT::VecOps::Take(Jet_p4, Trijet[0])').
+        Define('J2', 'ROOT::VecOps::Take(Jet_p4, Trijet[1])').
+        Define('J3', 'ROOT::VecOps::Take(Jet_p4, Trijet[2])').
+        Define('Trijet_p4', '(J1+J2+J3)[Trijet_btag]')
     )
+
+
 
     # Get trijet transverse momentum values from four-momentum vectors
     df = df.Define(
@@ -171,38 +180,10 @@ def define_trijet_mass(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
         "return ROOT::VecOps::Map(Trijet_p4, [](const ROOT::Math::PxPyPzMVector &v) { return v.Pt(); })",
     )
 
-    # trijet_btag is a helpful array of bool values indicating whether or not the maximum btag value in trijet is larger than 0.5 threshold
-    df = df.Define(
-        "Trijet_btag",
-        """
-        ROOT::RVecB btag(nTrijet);
-        for (int i = 0; i < nTrijet; ++i)
-        {
-            int j1 = Trijet[0][i];
-            int j2 = Trijet[1][i];
-            int j3 = Trijet[2][i];
-            btag[i] = std::max({Jet_btagCSVV2[Jet_pt_mask][j1], Jet_btagCSVV2[Jet_pt_mask][j2], Jet_btagCSVV2[Jet_pt_mask][j3]}) > 0.5;
-        }
-        return btag;
-        """,
-    )
-
     # Evaluate mass of trijet with maximum pt and btag higher than threshold
+
     df = df.Define(
-        "Trijet_mass",
-        """
-        double mass{};
-        double Pt{};
-        double indx{};
-        for (int i = 0; i < nTrijet; ++i) {
-            if ((Pt < Trijet_pt[i]) && (Trijet_btag[i])) {
-                Pt = Trijet_pt[i];
-                indx = i;
-            }
-        }
-        mass = Trijet_p4[indx].M();
-        return mass;
-        """,
+        "Trijet_mass", "Trijet_p4[ROOT::VecOps::ArgMax(Trijet_pt)].M()"
     )
 
     return df
@@ -255,6 +236,7 @@ def book_histos(
     if variation == "nominal":
         df = df.Vary(
             "Weights",
+            # FIXME: Jet_pt[Jet_pt_mask] is called 4 times
             "ROOT::RVecD{Weights*btag_weight_variation(Jet_pt[Jet_pt_mask])}",
             [
                 f"{weight_name}_{direction}"
@@ -270,6 +252,7 @@ def book_histos(
 
     # not strict condition is used because the same selection cut is applied in the reference implementation
     # https://github.com/iris-hep/analysis-grand-challenge/blob/main/analyses/cms-open-data-ttbar/ttbar_analysis_pipeline.py#L254
+    # FIXME: Jet_btagCSVV2[Jet_pt_mask] is called 3 times
     df4j1b = df.Filter("Sum(Jet_btagCSVV2[Jet_pt_mask]>=0.5)==1")\
                .Define("HT", "Sum(Jet_pt[Jet_pt_mask])")
     # fmt: on
