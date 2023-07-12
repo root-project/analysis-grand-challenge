@@ -1,3 +1,4 @@
+#include <random>
 #include <string>
 
 #include "ROOT/RVec.hxx"
@@ -5,11 +6,12 @@
 #include "TRandom3.h"
 
 // functions creating systematic variations
-inline TRandom &get_thread_local_trandom()
+double random_gaus()
 {
-   thread_local TRandom rng;
-   rng.SetSeed(gRandom->Integer(1000));
-   return rng;
+   thread_local std::random_device rd{};
+   thread_local std::mt19937 gen{rd()};
+   thread_local std::normal_distribution<double> d{1, 0.05};
+   return d(gen);
 }
 
 ROOT::RVecF jet_pt_resolution(std::size_t size)
@@ -17,7 +19,7 @@ ROOT::RVecF jet_pt_resolution(std::size_t size)
    // normal distribution with 5% variations, shape matches jets
    ROOT::RVecF res(size);
    std::generate(std::begin(res), std::end(res), []()
-                 { return get_thread_local_trandom().Gaus(1, 0.05); });
+                 { return random_gaus(); });
    return res;
 }
 
