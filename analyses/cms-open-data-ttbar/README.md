@@ -4,7 +4,7 @@ The physics analysis task is a $t\bar{t}$ cross-section measurement with 2015 CM
 
 A full explanation of the analysis task is available [at this link](https://agc.readthedocs.io/en/latest/taskbackground.html).
 
-The current implementation corresponds to [AGC version 0.1.0](https://github.com/iris-hep/analysis-grand-challenge/tree/v0.1.0).
+The current implementation corresponds to [AGC version 0.1.0](https://agc.readthedocs.io/en/latest/versionsdescription.html).
 
 ## Running the analysis
 
