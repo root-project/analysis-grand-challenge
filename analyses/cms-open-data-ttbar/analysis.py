@@ -172,8 +172,6 @@ def define_trijet_mass(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
         Define('Trijet_p4', '(J1+J2+J3)[Trijet_btag]')
     )
 
-
-
     # Get trijet transverse momentum values from four-momentum vectors
     df = df.Define(
         "Trijet_pt",
@@ -181,7 +179,6 @@ def define_trijet_mass(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
     )
 
     # Evaluate mass of trijet with maximum pt and btag higher than threshold
-
     df = df.Define(
         "Trijet_mass", "Trijet_p4[ROOT::VecOps::ArgMax(Trijet_pt)].M()"
     )
