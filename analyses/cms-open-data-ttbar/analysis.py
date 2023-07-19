@@ -146,7 +146,7 @@ def define_trijet_mass(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
     )
 
     # Build trijet combinations
-    df = df.Define("Trijet", "ROOT::VecOps::Combinations(Jet_pt[Jet_pt_mask],3)")
+    df = df.Define("Trijet", "Combinations(Jet_pt[Jet_pt_mask],3)")
 
     
     # Trijet_btag is a helpful array mask indicating whether or not the maximum btag value in Trijet is larger than the 0.5 threshold
@@ -154,9 +154,9 @@ def define_trijet_mass(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
             "Trijet_btag",
             """
             auto Jet_btagCSVV2_masked = Jet_btagCSVV2[Jet_pt_mask];
-            auto J1_btagCSVV2 = ROOT::VecOps::Take(Jet_btagCSVV2_masked, Trijet[0]);
-            auto J2_btagCSVV2 = ROOT::VecOps::Take(Jet_btagCSVV2_masked, Trijet[1]);
-            auto J3_btagCSVV2 = ROOT::VecOps::Take(Jet_btagCSVV2_masked, Trijet[2]);
+            auto J1_btagCSVV2 = Take(Jet_btagCSVV2_masked, Trijet[0]);
+            auto J2_btagCSVV2 = Take(Jet_btagCSVV2_masked, Trijet[1]);
+            auto J3_btagCSVV2 = Take(Jet_btagCSVV2_masked, Trijet[2]);
             return J1_btagCSVV2 > 0.5 || J2_btagCSVV2 > 0.5 || J3_btagCSVV2 > 0.5;
             """
             # FIXME 
@@ -166,21 +166,21 @@ def define_trijet_mass(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
 
     # Assign four-momentums to each trijet combination
     df = (
-        df.Define('J1', 'ROOT::VecOps::Take(Jet_p4, Trijet[0])').
-        Define('J2', 'ROOT::VecOps::Take(Jet_p4, Trijet[1])').
-        Define('J3', 'ROOT::VecOps::Take(Jet_p4, Trijet[2])').
+        df.Define('J1', 'Take(Jet_p4, Trijet[0])').
+        Define('J2', 'Take(Jet_p4, Trijet[1])').
+        Define('J3', 'Take(Jet_p4, Trijet[2])').
         Define('Trijet_p4', '(J1+J2+J3)[Trijet_btag]')
     )
 
     # Get trijet transverse momentum values from four-momentum vectors
     df = df.Define(
         "Trijet_pt",
-        "return ROOT::VecOps::Map(Trijet_p4, [](const ROOT::Math::PxPyPzMVector &v) { return v.Pt(); })",
+        "return Map(Trijet_p4, [](const ROOT::Math::PxPyPzMVector &v) { return v.Pt(); })",
     )
 
     # Evaluate mass of trijet with maximum pt and btag higher than threshold
     df = df.Define(
-        "Trijet_mass", "Trijet_p4[ROOT::VecOps::ArgMax(Trijet_pt)].M()"
+        "Trijet_mass", "Trijet_p4[ArgMax(Trijet_pt)].M()"
     )
 
     return df
