@@ -157,7 +157,7 @@ def define_trijet_mass(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
             auto J1_btagCSVV2 = ROOT::VecOps::Take(Jet_btagCSVV2_masked, Trijet[0]);
             auto J2_btagCSVV2 = ROOT::VecOps::Take(Jet_btagCSVV2_masked, Trijet[1]);
             auto J3_btagCSVV2 = ROOT::VecOps::Take(Jet_btagCSVV2_masked, Trijet[2]);
-            return (J1_btagCSVV2>0.5)||(J2_btagCSVV2>0.5)||(J3_btagCSVV2>0.5);
+            return J1_btagCSVV2 > 0.5 || J2_btagCSVV2 > 0.5 || J3_btagCSVV2 > 0.5;
             """
             # FIXME 
             # Do insteam something like max(J1_btag,J2_btag, Jt3_btag)>0.5. 
