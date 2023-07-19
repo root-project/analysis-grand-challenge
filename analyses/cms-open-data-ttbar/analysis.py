@@ -129,7 +129,7 @@ def define_trijet_mass(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
     """Add the trijet_mass observable to the dataframe after applying the appropriate selections."""
 
     # First, select events with at least 2 b-tagged jets
-    df = df.Filter("Sum(Jet_btagCSVV2_masked>0.5)>1")
+    df = df.Filter("Sum(Jet_btagCSVV2_masked > 0.5) > 1")
 
     # Build four-momentum vectors for each jet
     df = (  
@@ -253,7 +253,7 @@ def book_histos(
 
     # not strict condition is used because the same selection cut is applied in the reference implementation
     # https://github.com/iris-hep/analysis-grand-challenge/blob/main/analyses/cms-open-data-ttbar/ttbar_analysis_pipeline.py#L254
-    df4j1b = df.Filter("Sum(Jet_btagCSVV2_masked>=0.5)==1")\
+    df4j1b = df.Filter("Sum(Jet_btagCSVV2_masked >= 0.5) == 1")\
                .Define("HT", "Sum(Jet_pt_masked)")
     # fmt: on
 
