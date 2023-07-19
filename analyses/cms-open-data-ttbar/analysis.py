@@ -165,11 +165,14 @@ def define_trijet_mass(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
         )
 
     # Assign four-momentums to each trijet combination
-    df = (
-        df.Define('J1', 'Take(Jet_p4, Trijet[0])').
-        Define('J2', 'Take(Jet_p4, Trijet[1])').
-        Define('J3', 'Take(Jet_p4, Trijet[2])').
-        Define('Trijet_p4', '(J1+J2+J3)[Trijet_btag]')
+    df = df.Define(
+        'Trijet_p4',
+        '''
+        auto J1 = Take(Jet_p4, Trijet[0]);
+        auto J2 = Take(Jet_p4, Trijet[1]);
+        auto J3 = Take(Jet_p4, Trijet[2]);
+        return (J1+J2+J3)[Trijet_btag];
+        '''
     )
 
     # Get trijet transverse momentum values from four-momentum vectors
