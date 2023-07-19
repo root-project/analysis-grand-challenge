@@ -146,7 +146,7 @@ def define_trijet_mass(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
     )
 
     # Build trijet combinations
-    df = df.Define("Trijet", "Combinations(Jet_pt[Jet_pt_mask],3)")
+    df = df.Define("Trijet", "Combinations(Jet_pt[Jet_pt_mask], 3)")
 
     
     # Trijet_btag is a helpful array mask indicating whether or not the maximum btag value in Trijet is larger than the 0.5 threshold
