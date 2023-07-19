@@ -149,7 +149,7 @@ def define_trijet_mass(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
     df = df.Define("Trijet", "ROOT::VecOps::Combinations(Jet_pt[Jet_pt_mask],3)")
 
     
-    # trijet_btag is a helpful array of bool values indicating whether or not the maximum btag value in trijet is larger than 0.5 threshold
+    # Trijet_btag is a helpful array mask indicating whether or not the maximum btag value in Trijet is larger than the 0.5 threshold
     df = df.Define(
             "Trijet_btag",
             """
