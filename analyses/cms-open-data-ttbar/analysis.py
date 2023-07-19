@@ -129,7 +129,7 @@ def define_trijet_mass(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
     """Add the trijet_mass observable to the dataframe after applying the appropriate selections."""
 
     # First, select events with at least 2 b-tagged jets
-    df = df.Filter("Sum(Jet_btagCSVV2[Jet_pt_mask]>0.5)>1")
+    df = df.Filter("Sum(Jet_btagCSVV2_masked>0.5)>1")
 
     # Build four-momentum vectors for each jet
     df = (  
@@ -138,7 +138,7 @@ def define_trijet_mass(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
         """
         ROOT::VecOps::Construct<ROOT::Math::PxPyPzMVector>(
             ROOT::VecOps::Construct<ROOT::Math::PtEtaPhiMVector>(
-                Jet_pt[Jet_pt_mask], Jet_eta[Jet_pt_mask], Jet_phi[Jet_pt_mask], Jet_mass[Jet_pt_mask]
+                Jet_pt_masked, Jet_eta[Jet_pt_mask], Jet_phi[Jet_pt_mask], Jet_mass[Jet_pt_mask]
             )
         )
         """,
@@ -146,22 +146,18 @@ def define_trijet_mass(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
     )
 
     # Build trijet combinations
-    df = df.Define("Trijet", "Combinations(Jet_pt[Jet_pt_mask], 3)")
+    df = df.Define("Trijet", "Combinations(Jet_pt_masked, 3)")
 
     
     # Trijet_btag is a helpful array mask indicating whether or not the maximum btag value in Trijet is larger than the 0.5 threshold
     df = df.Define(
             "Trijet_btag",
             """
-            auto Jet_btagCSVV2_masked = Jet_btagCSVV2[Jet_pt_mask];
             auto J1_btagCSVV2 = Take(Jet_btagCSVV2_masked, Trijet[0]);
             auto J2_btagCSVV2 = Take(Jet_btagCSVV2_masked, Trijet[1]);
             auto J3_btagCSVV2 = Take(Jet_btagCSVV2_masked, Trijet[2]);
             return J1_btagCSVV2 > 0.5 || J2_btagCSVV2 > 0.5 || J3_btagCSVV2 > 0.5;
             """
-            # FIXME 
-            # Do insteam something like max(J1_btag,J2_btag, Jt3_btag)>0.5. 
-            # Do I need to define custom function max(RVec 1, RVec2, RVec3)?
         )
 
     # Assign four-momentums to each trijet combination
@@ -232,12 +228,17 @@ def book_histos(
         .Filter("Sum(Jet_pt_mask) >= 4")
     )
 
+    # create columns for "good" jet pt and btag values as these columns are used several times
+    df = (
+        df.Define("Jet_pt_masked", "Jet_pt[Jet_pt_mask]")
+          .Define("Jet_btagCSVV2_masked", "Jet_btagCSVV2[Jet_pt_mask]")
+    )
+
     # b-tagging variations for nominal samples
     if variation == "nominal":
         df = df.Vary(
             "Weights",
-            # FIXME: Jet_pt[Jet_pt_mask] is called 4 times
-            "ROOT::RVecD{Weights*btag_weight_variation(Jet_pt[Jet_pt_mask])}",
+            "ROOT::RVecD{Weights*btag_weight_variation(Jet_pt_masked)}",
             [
                 f"{weight_name}_{direction}"
                 for weight_name in [f"btag_var_{i}" for i in range(4)]
@@ -252,9 +253,8 @@ def book_histos(
 
     # not strict condition is used because the same selection cut is applied in the reference implementation
     # https://github.com/iris-hep/analysis-grand-challenge/blob/main/analyses/cms-open-data-ttbar/ttbar_analysis_pipeline.py#L254
-    # FIXME: Jet_btagCSVV2[Jet_pt_mask] is called 3 times
-    df4j1b = df.Filter("Sum(Jet_btagCSVV2[Jet_pt_mask]>=0.5)==1")\
-               .Define("HT", "Sum(Jet_pt[Jet_pt_mask])")
+    df4j1b = df.Filter("Sum(Jet_btagCSVV2_masked>=0.5)==1")\
+               .Define("HT", "Sum(Jet_pt_masked)")
     # fmt: on
 
     # Define trijet_mass observable for the 4j2b region (this one is more complicated)
