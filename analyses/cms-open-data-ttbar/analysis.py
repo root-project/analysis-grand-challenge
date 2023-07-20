@@ -221,12 +221,20 @@ def book_histos(
     # Selecting events containing at least one lepton and four jets with pT > 25 GeV
     # Applying requirement at least one of them must be b-tagged jet (see details in the specification)
     df = (
-        df.Define("Electron_pt_mask", "Electron_pt>25")
-        .Define("Muon_pt_mask", "Muon_pt>25")
-        .Define("Jet_pt_mask", "Jet_pt>25")
-        .Filter("Sum(Electron_pt_mask) + Sum(Muon_pt_mask) == 1")
-        .Filter("Sum(Jet_pt_mask) >= 4")
+     df.Define(
+        "Electron_pt_mask", 
+        "Electron_pt > 30 && abs(Electron_eta) < 2.1 && Electron_sip3d < 4 && Electron_cutBased == 4")
+       .Define(
+        "Muon_pt_mask", 
+        "Muon_pt > 30 && abs(Muon_eta) < 2.1 && Muon_sip3d < 4 && Muon_tightId && Muon_pfRelIso04_all < 0.15")
+       .Define(
+        "Jet_pt_mask", 
+        "Jet_pt > 30 && abs(Jet_eta) < 2.4 && Jet_jetId == 6")
+       .Filter("Sum(Electron_pt_mask) + Sum(Muon_pt_mask) == 1")
+       .Filter("Sum(Jet_pt_mask) >= 4")
     )
+
+    # print(f'Count {df.Count().GetValue()}')
 
     # create columns for "good" jet pt and btag values as these columns are used several times
     df = (
