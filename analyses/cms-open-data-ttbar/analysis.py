@@ -234,8 +234,6 @@ def book_histos(
        .Filter("Sum(Jet_pt_mask) >= 4")
     )
 
-    # print(f'Count {df.Count().GetValue()}')
-
     # create columns for "good" jet pt and btag values as these columns are used several times
     df = (
         df.Define("Jet_pt_ptcut", "Jet_pt[Jet_pt_mask]")
