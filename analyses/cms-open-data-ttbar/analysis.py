@@ -227,10 +227,10 @@ def book_histos(
        .Define(
         "Muon_pt_mask", 
         "Muon_pt > 30 && abs(Muon_eta) < 2.1 && Muon_sip3d < 4 && Muon_tightId && Muon_pfRelIso04_all < 0.15")
+       .Filter("Sum(Electron_pt_mask) + Sum(Muon_pt_mask) == 1")
        .Define(
         "Jet_pt_mask", 
         "Jet_pt > 30 && abs(Jet_eta) < 2.4 && Jet_jetId == 6")
-       .Filter("Sum(Electron_pt_mask) + Sum(Muon_pt_mask) == 1")
        .Filter("Sum(Jet_pt_mask) >= 4")
     )
 
