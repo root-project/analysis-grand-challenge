@@ -250,10 +250,7 @@ def book_histos(
     # Only one b-tagged region required
     # The observable is the total transvesre momentum
     # fmt: off
-
-    # not strict condition is used because the same selection cut is applied in the reference implementation
-    # https://github.com/iris-hep/analysis-grand-challenge/blob/main/analyses/cms-open-data-ttbar/ttbar_analysis_pipeline.py#L254
-    df4j1b = df.Filter("Sum(Jet_btagCSVV2_ptcut >= 0.5) == 1")\
+    df4j1b = df.Filter("Sum(Jet_btagCSVV2_ptcut > 0.5) == 1")\
                .Define("HT", "Sum(Jet_pt_ptcut)")
     # fmt: on
 
