@@ -1,6 +1,10 @@
-# Analysis Grand Challenge (AGC) benchmarks with ROOT
+# Analysis Grand Challenge implementations in modern ROOT
 
-The Analysis Grand Challenge (AGC) is about performing the last steps in an analysis pipeline at scale to test workflows envisioned for the HL-LHC.
+The analysis code can be found under [`analyses`](https://github.com/root-project/analysis-grand-challenge/tree/main/analyses/).
+
+## About the Analysis Grand Challenge
+
+The IRIS-HEP Analysis Grand Challenge (AGC) is about performing the last steps in an analysis pipeline at scale to test workflows envisioned for the HL-LHC.
 This includes:
 
 - columnar data extraction from large datasets
@@ -8,10 +12,6 @@ This includes:
 - statistical model construction and statistical inference
 - visualizations for these steps
 
-all done in a reproducible & preservable way that can scale to HL-LHC requirements.
+all done in a reproducible and preservable way that can scale to HL-LHC requirements.
 
 The official AGC documentation can be found [at this link](https://agc.readthedocs.io/en/latest/index.html).
-
-This repository implements AGC analysis tasks using modern ROOT interfaces.
-
-The physics analyses implementations can be found in the `analyses` folder.
