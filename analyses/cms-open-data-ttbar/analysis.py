@@ -124,12 +124,11 @@ def make_rdf(
 
     return ROOT.RDataFrame("Events", files)
 
-
 def define_trijet_mass(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
     """Add the trijet_mass observable to the dataframe after applying the appropriate selections."""
 
     # First, select events with at least 2 b-tagged jets
-    df = df.Filter("Sum(Jet_btagCSVV2_ptcut > 0.5) > 1")
+    df = df.Filter("Sum(Jet_btagCSVV2_cut > 0.5) > 1")
 
     # Build four-momentum vectors for each jet
     df = (  
@@ -138,7 +137,7 @@ def define_trijet_mass(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
         """
         ROOT::VecOps::Construct<ROOT::Math::PxPyPzMVector>(
             ROOT::VecOps::Construct<ROOT::Math::PtEtaPhiMVector>(
-                Jet_pt_ptcut, Jet_eta[Jet_pt_mask], Jet_phi[Jet_pt_mask], Jet_mass[Jet_pt_mask]
+                Jet_pt_cut, Jet_eta[Jet_mask], Jet_phi[Jet_mask], Jet_mass[Jet_mask]
             )
         )
         """,
@@ -146,16 +145,16 @@ def define_trijet_mass(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
     )
 
     # Build trijet combinations
-    df = df.Define("Trijet_idx", "Combinations(Jet_pt_ptcut, 3)")
+    df = df.Define("Trijet_idx", "Combinations(Jet_pt_cut, 3)")
 
     
     # Trijet_btag is a helpful array mask indicating whether or not the maximum btag value in Trijet is larger than the 0.5 threshold
     df = df.Define(
             "Trijet_btag",
             """
-            auto J1_btagCSVV2 = Take(Jet_btagCSVV2_ptcut, Trijet_idx[0]);
-            auto J2_btagCSVV2 = Take(Jet_btagCSVV2_ptcut, Trijet_idx[1]);
-            auto J3_btagCSVV2 = Take(Jet_btagCSVV2_ptcut, Trijet_idx[2]);
+            auto J1_btagCSVV2 = Take(Jet_btagCSVV2_cut, Trijet_idx[0]);
+            auto J2_btagCSVV2 = Take(Jet_btagCSVV2_cut, Trijet_idx[1]);
+            auto J3_btagCSVV2 = Take(Jet_btagCSVV2_cut, Trijet_idx[2]);
             return J1_btagCSVV2 > 0.5 || J2_btagCSVV2 > 0.5 || J3_btagCSVV2 > 0.5;
             """
         )
@@ -222,29 +221,29 @@ def book_histos(
     # Applying requirement at least one of them must be b-tagged jet (see details in the specification)
     df = (
      df.Define(
-        "Electron_pt_mask", 
+        "Electron_mask", 
         "Electron_pt > 30 && abs(Electron_eta) < 2.1 && Electron_sip3d < 4 && Electron_cutBased == 4")
        .Define(
-        "Muon_pt_mask", 
+        "Muon_mask", 
         "Muon_pt > 30 && abs(Muon_eta) < 2.1 && Muon_sip3d < 4 && Muon_tightId && Muon_pfRelIso04_all < 0.15")
-       .Filter("Sum(Electron_pt_mask) + Sum(Muon_pt_mask) == 1")
+       .Filter("Sum(Electron_mask) + Sum(Muon_mask) == 1")
        .Define(
-        "Jet_pt_mask", 
+        "Jet_mask", 
         "Jet_pt > 30 && abs(Jet_eta) < 2.4 && Jet_jetId == 6")
-       .Filter("Sum(Jet_pt_mask) >= 4")
+       .Filter("Sum(Jet_mask) >= 4")
     )
 
     # create columns for "good" jet pt and btag values as these columns are used several times
     df = (
-        df.Define("Jet_pt_ptcut", "Jet_pt[Jet_pt_mask]")
-          .Define("Jet_btagCSVV2_ptcut", "Jet_btagCSVV2[Jet_pt_mask]")
+        df.Define("Jet_pt_cut", "Jet_pt[Jet_mask]")
+          .Define("Jet_btagCSVV2_cut", "Jet_btagCSVV2[Jet_mask]")
     )
 
     # b-tagging variations for nominal samples
     if variation == "nominal":
         df = df.Vary(
             "Weights",
-            "ROOT::RVecD{Weights*btag_weight_variation(Jet_pt_ptcut)}",
+            "ROOT::RVecD{Weights*btag_weight_variation(Jet_pt_cut)}",
             [
                 f"{weight_name}_{direction}"
                 for weight_name in [f"btag_var_{i}" for i in range(4)]
@@ -256,8 +255,8 @@ def book_histos(
     # Only one b-tagged region required
     # The observable is the total transvesre momentum
     # fmt: off
-    df4j1b = df.Filter("Sum(Jet_btagCSVV2_ptcut > 0.5) == 1")\
-               .Define("HT", "Sum(Jet_pt_ptcut)")
+    df4j1b = df.Filter("Sum(Jet_btagCSVV2_cut > 0.5) == 1")\
+               .Define("HT", "Sum(Jet_pt_cut)")
     # fmt: on
 
     # Define trijet_mass observable for the 4j2b region (this one is more complicated)
@@ -335,6 +334,7 @@ def main() -> None:
         args.n_max_files_per_sample, args.remote_data_prefix, args.data_cache
     )
     results: list[AGCResult] = []
+
     for input in inputs:
         df = make_rdf(input.paths, client, args.npartitions)
         results += book_histos(df, input.process, input.variation, input.nevents)
