@@ -131,18 +131,10 @@ def define_trijet_mass(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
     df = df.Filter("Sum(Jet_btagCSVV2_cut > 0.5) > 1")
 
     # Build four-momentum vectors for each jet
-    df = (  
-        df.Define(
-        "Jet_p4",
-        """
-        ROOT::VecOps::Construct<ROOT::Math::PxPyPzMVector>(
-            ROOT::VecOps::Construct<ROOT::Math::PtEtaPhiMVector>(
-                Jet_pt_cut, Jet_eta_cut, Jet_phi_cut, Jet_mass_cut
-            )
+    df = df.Define(
+            "Jet_p4",
+            "ConstructP4(Jet_pt_cut, Jet_eta_cut, Jet_phi_cut, Jet_mass_cut)"
         )
-        """,
-        )
-    )
 
     # Build trijet combinations
     df = df.Define("Trijet_idx", "Combinations(Jet_pt_cut, 3)")
