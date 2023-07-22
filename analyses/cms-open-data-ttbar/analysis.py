@@ -137,7 +137,7 @@ def define_trijet_mass(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
         """
         ROOT::VecOps::Construct<ROOT::Math::PxPyPzMVector>(
             ROOT::VecOps::Construct<ROOT::Math::PtEtaPhiMVector>(
-                Jet_pt_cut, Jet_eta[Jet_mask], Jet_phi[Jet_mask], Jet_mass[Jet_mask]
+                Jet_pt_cut, Jet_eta_cut, Jet_phi_cut, Jet_mass_cut
             )
         )
         """,
@@ -233,10 +233,13 @@ def book_histos(
        .Filter("Sum(Jet_mask) >= 4")
     )
 
-    # create columns for "good" jet pt and btag values as these columns are used several times
+    # create columns for "good" jets
     df = (
         df.Define("Jet_pt_cut", "Jet_pt[Jet_mask]")
           .Define("Jet_btagCSVV2_cut", "Jet_btagCSVV2[Jet_mask]")
+          .Define("Jet_eta_cut", "Jet_eta[Jet_mask]")
+          .Define("Jet_phi_cut", "Jet_phi[Jet_mask]")
+          .Define("Jet_mass_cut", "Jet_mass[Jet_mask]")
     )
 
     # b-tagging variations for nominal samples
