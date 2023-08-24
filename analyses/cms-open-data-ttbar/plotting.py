@@ -85,3 +85,21 @@ def save_plots(results: list[AGCResult]):
     x.CenterTitle()
     c.BuildLegend(0.65, 0.7, 0.9, 0.9)
     c.SaveAs("jet.png")
+
+def save_ml_plots(results: list[AGCResult]):
+    
+    from ml import ml_feature_histo_config
+
+    width = 2160
+    height = 2160
+    c = ROOT.TCanvas("c", "c", width, height)
+
+    for i, feature in enumerate(ml_feature_histo_config["names"]):
+        hlist = [r.histo for r in results if r.variation == "nominal" and r.region == feature]
+        hs = ROOT.THStack("features", ml_feature_histo_config["labels"][i])
+        for h in hlist:
+            hs.Add(h)       
+        hs.Draw("hist pfc plc")  
+        c.BuildLegend()
+        c.Print( "features.pdf" + (i==0) * "(" + ( i+1 == len(ml_feature_histo_config["names"])) * ")" )
+        
