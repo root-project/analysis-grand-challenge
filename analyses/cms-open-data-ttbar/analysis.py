@@ -6,13 +6,20 @@ from typing import Optional
 
 import ROOT
 from distributed import Client, LocalCluster, SSHCluster, get_worker
-from plotting import save_plots
+from plotting import save_plots, save_ml_plots
 from utils import (
     AGCInput,
     AGCResult,
     postprocess_results,
     retrieve_inputs,
     save_histos,
+)
+
+from ml import (
+    ml_feature_histo_config,
+    compile_mlhelpers_cpp,
+    define_features,
+    infer_output_ml_features,
 )
 
 # Using https://atlas-groupdata.web.cern.ch/atlas-groupdata/dev/AnalysisTop/TopDataPreparation/XSection-MC15-13TeV.data
@@ -51,6 +58,11 @@ def parse_args() -> argparse.Namespace:
         "-o",
         help="Name of the file where analysis results will be stored. If it already exists, contents are overwritten.",
         default="histograms.root",
+    )
+    p.add_argument("--inference",
+                   action=argparse.BooleanOptionalAction,
+                   help="""Produce machine learning histograms if enabled.
+                        Disabled by default."""
     )
     p.add_argument(
         "--scheduler",
@@ -124,6 +136,7 @@ def make_rdf(
 
     return ROOT.RDataFrame("Events", files)
 
+
 def define_trijet_mass(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
     """Add the trijet_mass observable to the dataframe after applying the appropriate selections."""
 
@@ -131,35 +144,31 @@ def define_trijet_mass(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
     df = df.Filter("Sum(Jet_btagCSVV2_cut > 0.5) > 1")
 
     # Build four-momentum vectors for each jet
-    df = df.Define(
-            "Jet_p4",
-            "ConstructP4(Jet_pt_cut, Jet_eta_cut, Jet_phi_cut, Jet_mass_cut)"
-        )
+    df = df.Define("Jet_p4", "ConstructP4(Jet_pt_cut, Jet_eta_cut, Jet_phi_cut, Jet_mass_cut)")
 
     # Build trijet combinations
     df = df.Define("Trijet_idx", "Combinations(Jet_pt_cut, 3)")
 
-    
     # Trijet_btag is a helpful array mask indicating whether or not the maximum btag value in Trijet is larger than the 0.5 threshold
     df = df.Define(
-            "Trijet_btag",
-            """
+        "Trijet_btag",
+        """
             auto J1_btagCSVV2 = Take(Jet_btagCSVV2_cut, Trijet_idx[0]);
             auto J2_btagCSVV2 = Take(Jet_btagCSVV2_cut, Trijet_idx[1]);
             auto J3_btagCSVV2 = Take(Jet_btagCSVV2_cut, Trijet_idx[2]);
             return J1_btagCSVV2 > 0.5 || J2_btagCSVV2 > 0.5 || J3_btagCSVV2 > 0.5;
-            """
-        )
+            """,
+    )
 
     # Assign four-momentums to each trijet combination
     df = df.Define(
-        'Trijet_p4',
-        '''
+        "Trijet_p4",
+        """
         auto J1 = Take(Jet_p4, Trijet_idx[0]);
         auto J2 = Take(Jet_p4, Trijet_idx[1]);
         auto J3 = Take(Jet_p4, Trijet_idx[2]);
         return (J1+J2+J3)[Trijet_btag];
-        '''
+        """,
     )
 
     # Get trijet transverse momentum values from four-momentum vectors
@@ -169,20 +178,17 @@ def define_trijet_mass(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
     )
 
     # Evaluate mass of trijet with maximum pt and btag higher than threshold
-    df = df.Define(
-        "Trijet_mass", "Trijet_p4[ArgMax(Trijet_pt)].M()"
-    )
+    df = df.Define("Trijet_mass", "Trijet_p4[ArgMax(Trijet_pt)].M()")
 
     return df
 
 
 def book_histos(
-    df: ROOT.RDataFrame,
-    process: str,
-    variation: str,
-    nevents: int,
-) -> list[AGCResult]:
-    """Return the RDataFrame results pertaining to the desired process and variation."""
+    df: ROOT.RDataFrame, process: str, variation: str, nevents: int, inference=False
+) -> (list[AGCResult], list[AGCResult]):
+    """Return the pair of lists of RDataFrame results pertaining to the desired process and variation.
+    The first list contains histograms of reconstructed HT and trijet masses.
+    The second contains histograms of features."""
     # Calculate normalization for MC
     x_sec = XSEC_INFO[process]
     lumi = 3378  # /pb
@@ -212,26 +218,26 @@ def book_histos(
     # Selecting events containing at least one lepton and four jets with pT > 25 GeV
     # Applying requirement at least one of them must be b-tagged jet (see details in the specification)
     df = (
-     df.Define(
-        "Electron_mask", 
-        "Electron_pt > 30 && abs(Electron_eta) < 2.1 && Electron_sip3d < 4 && Electron_cutBased == 4")
-       .Define(
-        "Muon_mask", 
-        "Muon_pt > 30 && abs(Muon_eta) < 2.1 && Muon_sip3d < 4 && Muon_tightId && Muon_pfRelIso04_all < 0.15")
-       .Filter("Sum(Electron_mask) + Sum(Muon_mask) == 1")
-       .Define(
-        "Jet_mask", 
-        "Jet_pt > 30 && abs(Jet_eta) < 2.4 && Jet_jetId == 6")
-       .Filter("Sum(Jet_mask) >= 4")
+        df.Define(
+            "Electron_mask",
+            "Electron_pt > 30 && abs(Electron_eta) < 2.1 && Electron_sip3d < 4 && Electron_cutBased == 4",
+        )
+        .Define(
+            "Muon_mask",
+            "Muon_pt > 30 && abs(Muon_eta) < 2.1 && Muon_sip3d < 4 && Muon_tightId && Muon_pfRelIso04_all < 0.15",
+        )
+        .Filter("Sum(Electron_mask) + Sum(Muon_mask) == 1")
+        .Define("Jet_mask", "Jet_pt > 30 && abs(Jet_eta) < 2.4 && Jet_jetId == 6")
+        .Filter("Sum(Jet_mask) >= 4")
     )
 
     # create columns for "good" jets
     df = (
         df.Define("Jet_pt_cut", "Jet_pt[Jet_mask]")
-          .Define("Jet_btagCSVV2_cut", "Jet_btagCSVV2[Jet_mask]")
-          .Define("Jet_eta_cut", "Jet_eta[Jet_mask]")
-          .Define("Jet_phi_cut", "Jet_phi[Jet_mask]")
-          .Define("Jet_mass_cut", "Jet_mass[Jet_mask]")
+        .Define("Jet_btagCSVV2_cut", "Jet_btagCSVV2[Jet_mask]")
+        .Define("Jet_eta_cut", "Jet_eta[Jet_mask]")
+        .Define("Jet_phi_cut", "Jet_phi[Jet_mask]")
+        .Define("Jet_mass_cut", "Jet_mass[Jet_mask]")
     )
 
     # b-tagging variations for nominal samples
@@ -256,7 +262,6 @@ def book_histos(
 
     # Define trijet_mass observable for the 4j2b region (this one is more complicated)
     df4j2b = define_trijet_mass(df)
-
     # Select the right VariationsFor function depending on RDF or DistRDF
     if type(df).__module__ == "DistRDF.Proxy":
         variationsfor_func = ROOT.RDF.Experimental.Distributed.VariationsFor
@@ -278,9 +283,40 @@ def book_histos(
             results.append(AGCResult(nominal_histo, region, process, variation, nominal_histo))
         print(f"Booked histogram {histo_model.fName}")
 
+    ml_results = []
+
+    if not inference:
+        return (results, ml_results)
+
+    df4j2b = define_features(df4j2b)
+    df4j2b = infer_output_ml_features(df4j2b)
+
+    # Book histograms and, if needed, their systematic variations
+    for i, observable in enumerate(ml_feature_histo_config["names"]):
+        histo_model = ROOT.RDF.TH1DModel(
+            name=f"{observable}_{process}_{variation}",
+            title=process,
+            nbinsx=25,
+            xlow=ml_feature_histo_config["bin_low"][i],
+            xup=ml_feature_histo_config["bin_high"][i],
+        )
+
+        nominal_histo = df4j2b.Histo1D(histo_model, f"results{i}", "Weights")
+
+        if variation == "nominal":
+            varied_histos = variationsfor_func(nominal_histo)
+            ml_results.append(
+                AGCResult(varied_histos, observable, process, variation, nominal_histo)
+            )
+        else:
+            ml_results.append(
+                AGCResult(nominal_histo, observable, process, variation, nominal_histo)
+            )
+        print(f"Booked histogram {histo_model.fName}")
+
     # Return the booked results
     # Note that no event loop has run yet at this point (RDataFrame is lazy)
-    return results
+    return (results, ml_results)
 
 
 def load_cpp():
@@ -329,15 +365,24 @@ def main() -> None:
         args.n_max_files_per_sample, args.remote_data_prefix, args.data_cache
     )
     results: list[AGCResult] = []
+    ml_results: list[AGCResult] = []
+
+    if args.inference:
+        compile_mlhelpers_cpp("./fastforest", 4)
 
     for input in inputs:
         df = make_rdf(input.paths, client, args.npartitions)
-        results += book_histos(df, input.process, input.variation, input.nevents)
+        hist_list, ml_hist_list = book_histos(
+            df, input.process, input.variation, input.nevents, inference=args.inference
+        )
+        results += hist_list
+        ml_results += ml_hist_list
     print(f"Building the computation graphs took {time() - program_start:.2f} seconds")
 
     # Run the event loops for all processes and variations here
     run_graphs_start = time()
-    run_graphs([r.nominal_histo for r in results])
+    run_graphs([r.nominal_histo for r in results + ml_results])
+
     print(f"Executing the computation graphs took {time() - run_graphs_start:.2f} seconds")
     if client is not None:
         client.close()
@@ -346,6 +391,13 @@ def main() -> None:
     save_plots(results)
     save_histos([r.histo for r in results], output_fname=args.output)
     print(f"Result histograms saved in file {args.output}")
+
+    if args.inference:
+        ml_results = postprocess_results(ml_results)
+        save_ml_plots(ml_results)
+        output_fname = args.output.split(".root")[0] + "_ml_inference.root"
+        save_histos([r.histo for r in ml_results], output_fname=output_fname)
+        print(f"Result histograms from ML inference step saved in file {output_fname}")
 
 
 if __name__ == "__main__":

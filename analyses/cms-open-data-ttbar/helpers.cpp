@@ -47,8 +47,9 @@ ROOT::RVecF flat_variation()
    return 1 + ROOT::RVecF({.025, -.025});
 }
 
-ROOT::VecOps::RVec<ROOT::Math::PxPyPzMVector> ConstructP4 (ROOT::RVecD Pt, ROOT::RVecD Eta, ROOT::RVecD Phi, ROOT::RVecD M)
+ROOT::VecOps::RVec<ROOT::Math::PxPyPzMVector> ConstructP4 (const ROOT::RVecD & Pt, const ROOT::RVecD & Eta, const ROOT::RVecD & Phi, const ROOT::RVecD & M)
 {
+
    return ROOT::VecOps::Construct<ROOT::Math::PxPyPzMVector>(
                 ROOT::VecOps::Construct<ROOT::Math::PtEtaPhiMVector>(
                     Pt, 
