@@ -255,22 +255,27 @@ def define_features(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
     return df
 
 
-def predict(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
-    # get indexes of best permutations' candidates
+def predict_proba(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
+    """get probability scores for every permutation in event"""
+
     return df.Define(
-        "perm_idx",
+        "proba",
         """
         bool is_even = (event % 2 == 0);
         const auto& forest = (is_even) ? feven : fodd;
-        auto result  = inference(features, forest, true);
-        return ArgMax(result);
+        return inference(features, forest, true);
         """,
     )
 
 
 def infer_output_ml_features(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
-    df = predict(df)
+    """
+    Choose for each feature the best candidate with the highest probability score.
+    Results are features of the best four-jet permutation at each event
+    """
+
+    df = predict_proba(df)
     for i, feature in enumerate(ml_feature_histo_config["names"]):
-        df = df.Define(f"results{i}", f"{feature}[perm_idx]")
+        df = df.Define(f"results{i}", f"{feature}[ArgMax(proba)]")
 
     return df
