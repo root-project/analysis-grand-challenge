@@ -88,18 +88,18 @@ def save_plots(results: list[AGCResult]):
 
 def save_ml_plots(results: list[AGCResult]):
     
-    from ml import ml_feature_histo_config
+    from ml import ml_features_config
 
     width = 2160
     height = 2160
     c = ROOT.TCanvas("c", "c", width, height)
 
-    for i, feature in enumerate(ml_feature_histo_config["names"]):
+    for i, feature in enumerate(ml_features_config):
         hlist = [r.histo for r in results if r.variation == "nominal" and r.region == feature]
-        hs = ROOT.THStack("features", ml_feature_histo_config["labels"][i])
+        hs = ROOT.THStack("features", feature.title)
         for h in hlist:
             hs.Add(h)       
         hs.Draw("hist pfc plc")  
         c.BuildLegend()
-        c.Print( "features.pdf" + (i==0) * "(" + ( i+1 == len(ml_feature_histo_config["names"])) * ")" )
+        c.Print( "features.pdf" + (i==0) * "(" + ( i+1 == len(ml_features_config)) * ")" )
         

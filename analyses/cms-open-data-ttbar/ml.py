@@ -1,99 +1,57 @@
 import ROOT
 import os
+from dataclasses import dataclass
 
-ml_feature_histo_config = {
-    # histogram bin lower limit to use for each ML input feature
-    "bin_low": [
-        0,
-        0,
-        0,
-        0,
-        50,
-        50,
-        50,
-        50,
-        25,
-        25,
-        25,
-        25,
-        0,
-        0,
-        0,
-        0,
-        -1,
-        -1,
-        -1,
-        -1,
-    ],
-    # histogram bin upper limit to use for each ML input feature
-    "bin_high": [
-        6,
-        6,
-        6,
-        6,
-        300,
-        300,
-        550,
-        550,
-        300,
-        300,
-        300,
-        300,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-    ],
-    # names of each ML input feature (used when creating histograms)
-    "names": [
-        "deltar_leptonbtoplep",
-        "deltar_w1w2",
-        "deltar_w1btophad",
-        "deltar_w2btophad",
-        "mass_leptonbtoplep",
-        "mass_w1w2",
-        "mass_w1w2btophad",
-        "pt_w1w2btophad",
-        "pt_w1",
-        "pt_w2",
-        "pt_btophad",
-        "pt_btoplep",
-        "btag_w1",
-        "btag_w2",
-        "btag_btophad",
-        "btag_btoplep",
-        "qgl_w1",
-        "qgl_w2",
-        "qgl_btophad",
-        "qgl_btoplep",
-    ],
-    "labels": [
-        "Delta R between b_{top-lep} Jet and Lepton",
-        "Delta R between the two W Jets",
-        "Delta R between first W Jet and b_{top-had} Jet",
-        "Delta R between second W Jet and b_{top-had} Jet",
-        "Combined Mass of b_{top-lep} Jet and Lepton [GeV]",
-        "Combined Mass of the two W Jets [GeV]",
-        "Combined Mass of b_{top-had} Jet and the two W Jets [GeV]",
-        "Combined p_T of b_{top-had} Jet and the two W Jets [GeV]",
-        "p_T of the first W Jet [GeV]",
-        "p_T of the second W Jet [GeV]",
-        "p_T of the b_{top-had} Jet [GeV]",
-        "p_T of the b_{top-lep} Jet [GeV]",
-        "btagCSVV2 of the first W Jet",
-        "btagCSVV2 of the second W Jet",
-        "btagCSVV2 of the b_{top-had} Jet",
-        "btagCSVV2 of the b_{top-lep} Jet",
-        "Quark vs Gluon likelihood discriminator of the first W Jet",
-        "Quark vs Gluon likelihood discriminator of the second W Jet",
-        "Quark vs Gluon likelihood discriminator of the b_{top-had} Jet",
-        "Quark vs Gluon likelihood discriminator of the b_{top-lep} Jet",
-    ],
-}
+# histogram bin lower limit to use for each ML input feature
+bin_low = [0, 0, 0, 0, 50, 50, 50, 50, 25, 25, 25, 25, 0, 0, 0, 0, -1, -1, -1, -1]
+
+# histogram bin upper limit to use for each ML input feature
+bin_high = [6, 6, 6, 6, 300, 300, 550, 550, 300, 300, 300, 300, 1, 1, 1, 1, 1, 1, 1, 1]
+
+# names of each ML input feature (used when creating histograms)
+feature_names = [
+    "deltar_leptonbtoplep", "deltar_w1w2", "deltar_w1btophad", "deltar_w2btophad",
+    "mass_leptonbtoplep",   "mass_w1w2",   "mass_w1w2btophad", "pt_w1w2btophad",
+    "pt_w1",                "pt_w2",       "pt_btophad",       "pt_btoplep", 
+    "btag_w1",              "btag_w2",     "btag_btophad",     "btag_btoplep", 
+    "qgl_w1",               "qgl_w2",      "qgl_btophad",      "qgl_btoplep",
+]
+
+# labels for each ML input feature (used for plotting)
+feature_labels = [
+    "Delta R between b_{top-lep} Jet and Lepton",
+    "Delta R between the two W Jets",
+    "Delta R between first W Jet and b_{top-had} Jet",
+    "Delta R between second W Jet and b_{top-had} Jet",
+    "Combined Mass of b_{top-lep} Jet and Lepton [GeV]",
+    "Combined Mass of the two W Jets [GeV]",
+    "Combined Mass of b_{top-had} Jet and the two W Jets [GeV]",
+    "Combined p_T of b_{top-had} Jet and the two W Jets [GeV]",
+    "p_T of the first W Jet [GeV]",
+    "p_T of the second W Jet [GeV]",
+    "p_T of the b_{top-had} Jet [GeV]",
+    "p_T of the b_{top-lep} Jet [GeV]",
+    "btagCSVV2 of the first W Jet",
+    "btagCSVV2 of the second W Jet",
+    "btagCSVV2 of the b_{top-had} Jet",
+    "btagCSVV2 of the b_{top-lep} Jet",
+    "Quark vs Gluon likelihood discriminator of the first W Jet",
+    "Quark vs Gluon likelihood discriminator of the second W Jet",
+    "Quark vs Gluon likelihood discriminator of the b_{top-had} Jet",
+    "Quark vs Gluon likelihood discriminator of the b_{top-lep} Jet",
+]
+
+@dataclass
+class MLHistoConf:
+  name: str
+  title: str
+  binning: (float, float, int) # nbins, low, high
+
+ml_features_config: list[MLHistoConf] = [
+    MLHistoConf(name = feature_names[i], title = feature_labels[i], binning = (25, bin_low[i], bin_high[i])) for i in range(len(feature_names))
+]
+
+
 
 
 def compile_mlhelpers_cpp(fastforest_path, max_n_jets=6):
@@ -168,8 +126,6 @@ def define_features(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
         .Define("bH_idx", "permutations[std::min(Jet_pt_cut.size(), max_n_jets)][2]")
         .Define("bL_idx", "permutations[std::min(Jet_pt_cut.size(), max_n_jets)][3]")
     )
-
-    feature_names = ml_feature_histo_config["names"]
 
     # # Apply indexes to jets. Jets pt and btagCSVV2 and qgl are features itself (12 features)
     df = (
@@ -249,8 +205,15 @@ def define_features(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
         )
     )
     # put all features into one collection
-    feature_names = feature_names.__str__().replace("[", "{").replace("]", "}").replace("'", "")
-    df = df.Define("features", f"ROOT::VecOps::RVec<ROOT::RVecF>({feature_names})")
+
+    def list_as_str (feature_list: list[str]) -> str:
+        """ 
+        accept [f0, f1, ..., fN]
+        return "{f0, f1, ..., fN}" 
+        """
+        return feature_list.__str__().replace("[", "{").replace("]", "}").replace("'", "")
+    
+    df = df.Define("features", f"ROOT::VecOps::RVec<ROOT::RVecF>({list_as_str(feature_names)})")
 
     return df
 
@@ -275,7 +238,7 @@ def infer_output_ml_features(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
     """
 
     df = predict_proba(df)
-    for i, feature in enumerate(ml_feature_histo_config["names"]):
+    for i, feature in enumerate(feature_names):
         df = df.Define(f"results{i}", f"{feature}[ArgMax(proba)]")
 
     return df
