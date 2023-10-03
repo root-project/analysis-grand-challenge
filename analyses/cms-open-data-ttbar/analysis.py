@@ -16,7 +16,7 @@ from utils import (
 )
 
 from ml import (
-    ml_feature_histo_config,
+    ml_features_config,
     compile_mlhelpers_cpp,
     define_features,
     infer_output_ml_features,
@@ -292,13 +292,13 @@ def book_histos(
     df4j2b = infer_output_ml_features(df4j2b)
 
     # Book histograms and, if needed, their systematic variations
-    for i, observable in enumerate(ml_feature_histo_config["names"]):
+    for i, feature in enumerate(ml_features_config):
         histo_model = ROOT.RDF.TH1DModel(
-            name=f"{observable}_{process}_{variation}",
-            title=process,
-            nbinsx=25,
-            xlow=ml_feature_histo_config["bin_low"][i],
-            xup=ml_feature_histo_config["bin_high"][i],
+            name=f"{feature.name}_{process}_{variation}",
+            title=feature.title,
+            nbinsx=feature.binning[0],
+            xlow=feature.binning[1],
+            xup=feature.binning[2],
         )
 
         nominal_histo = df4j2b.Histo1D(histo_model, f"results{i}", "Weights")
@@ -306,11 +306,11 @@ def book_histos(
         if variation == "nominal":
             varied_histos = variationsfor_func(nominal_histo)
             ml_results.append(
-                AGCResult(varied_histos, observable, process, variation, nominal_histo)
+                AGCResult(varied_histos, feature.name, process, variation, nominal_histo)
             )
         else:
             ml_results.append(
-                AGCResult(nominal_histo, observable, process, variation, nominal_histo)
+                AGCResult(nominal_histo, feature.name, process, variation, nominal_histo)
             )
         print(f"Booked histogram {histo_model.fName}")
 
