@@ -186,9 +186,9 @@ def define_trijet_mass(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
 def book_histos(
     df: ROOT.RDataFrame, process: str, variation: str, nevents: int, inference=False
 ) -> (list[AGCResult], list[AGCResult]):
-    """Return the pair of lists of RDataFrame results pertaining to the desired process and variation.
+    """Return the pair of lists of RDataFrame results pertaining to the given process and variation.
     The first list contains histograms of reconstructed HT and trijet masses.
-    The second contains histograms of features."""
+    The second contains ML inference outputs"""
     # Calculate normalization for MC
     x_sec = XSEC_INFO[process]
     lumi = 3378  # /pb
