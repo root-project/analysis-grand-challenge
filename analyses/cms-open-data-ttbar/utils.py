@@ -28,6 +28,8 @@ class AGCResult:
     # in v6.28 we need a RResultPtr to pass to RDF.RunGraphs in order to trigger the event loop.
     # In later versions RunGraphs accepts RResultMaps as well, and we don't need this data attribute.
     nominal_histo: ROOT.RDF.RResultPtr[ROOT.TH1D]
+    # Whether we should call VariationsFor over histo to produce variations
+    should_vary: bool = False
 
 
 def _tqdm_urlretrieve_hook(t: tqdm):

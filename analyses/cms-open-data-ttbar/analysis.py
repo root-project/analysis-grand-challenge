@@ -263,11 +263,6 @@ def book_histos(
 
     # Define trijet_mass observable for the 4j2b region (this one is more complicated)
     df4j2b = define_trijet_mass(df)
-    # Select the right VariationsFor function depending on RDF or DistRDF
-    if type(df).__module__ == "DistRDF.Proxy":
-        variationsfor_func = ROOT.RDF.Experimental.Distributed.VariationsFor
-    else:
-        variationsfor_func = ROOT.RDF.Experimental.VariationsFor
 
     # Book histograms and, if needed, their systematic variations
     results = []
@@ -278,10 +273,9 @@ def book_histos(
         nominal_histo = df.Histo1D(histo_model, observable, "Weights")
 
         if variation == "nominal":
-            varied_histos = variationsfor_func(nominal_histo)
-            results.append(AGCResult(varied_histos, region, process, variation, nominal_histo))
+            results.append(AGCResult(nominal_histo, region, process, variation, nominal_histo, should_vary=True))
         else:
-            results.append(AGCResult(nominal_histo, region, process, variation, nominal_histo))
+            results.append(AGCResult(nominal_histo, region, process, variation, nominal_histo, should_vary=False))
         print(f"Booked histogram {histo_model.fName}")
 
     ml_results: list[AGCResult] = []
@@ -305,13 +299,12 @@ def book_histos(
         nominal_histo = df4j2b.Histo1D(histo_model, f"results{i}", "Weights")
 
         if variation == "nominal":
-            varied_histos = variationsfor_func(nominal_histo)
             ml_results.append(
-                AGCResult(varied_histos, feature.name, process, variation, nominal_histo)
+                AGCResult(nominal_histo, feature.name, process, variation, nominal_histo, should_vary=True)
             )
         else:
             ml_results.append(
-                AGCResult(nominal_histo, feature.name, process, variation, nominal_histo)
+                AGCResult(nominal_histo, feature.name, process, variation, nominal_histo, should_vary=False)
             )
         print(f"Booked histogram {histo_model.fName}")
 
@@ -384,6 +377,16 @@ def main() -> None:
         )
         results += hist_list
         ml_results += ml_hist_list
+
+    # Select the right VariationsFor function depending on RDF or DistRDF
+    if type(df).__module__ == "DistRDF.Proxy":
+        variationsfor_func = ROOT.RDF.Experimental.Distributed.VariationsFor
+    else:
+        variationsfor_func = ROOT.RDF.Experimental.VariationsFor
+    for r in results + ml_results:
+        if r.should_vary:
+            r.histo = variationsfor_func(r.histo)
+
     print(f"Building the computation graphs took {time() - program_start:.2f} seconds")
 
     # Run the event loops for all processes and variations here
