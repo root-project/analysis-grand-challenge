@@ -221,11 +221,15 @@ def define_features(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
 def predict_proba(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
     """get probability scores for every permutation in event"""
 
+    # in inference, odd model applied to even events, while even model to odd events
+    # read more about inference in dedicated part of AGC documentation: 
+    # https://agc.readthedocs.io/en/latest/taskbackground.html#machine-learning-component  
+    
     return df.Define(
         "proba",
         """
         bool is_even = (event % 2 == 0);
-        const auto& forest = (is_even) ? feven : fodd;
+        const auto& forest = (is_even) ? fodd : feven;
         return inference(features, forest, true);
         """,
     )
