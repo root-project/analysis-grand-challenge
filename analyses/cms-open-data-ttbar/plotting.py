@@ -25,7 +25,7 @@ def save_plots(results: list[AGCResult]):
 
     # Region 2 stack
     hlist = [r.histo for r in results if r.region == "4j2b" and r.variation == "nominal"]
-    hs = ROOT.THStack("j4b1", ">=4 jets, 2 b-tag; H_{T} [GeV]")
+    hs = ROOT.THStack("j4b2", ">=4 jets, 2 b-tag; m_{bjj} [GeV]")
     for h in hlist:
         hs.Add(h)
     hs.Draw("hist pfc plc")
