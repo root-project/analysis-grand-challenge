@@ -16,8 +16,8 @@ from utils import (
 )
 
 from ml import (
+    setup_mlhelpers_cpp,
     ml_features_config,
-    compile_mlhelpers_cpp,
     define_features,
     infer_output_ml_features,
 )
@@ -368,7 +368,9 @@ def main() -> None:
     ml_results: list[AGCResult] = []
 
     if args.inference:
-        compile_mlhelpers_cpp("./fastforest", 4)
+        # hardcoded for now: we expect ROOT to integrate FastForest soon
+        fastforest_path="./fastforest" # the path for fastforest libraries and headers
+        setup_mlhelpers_cpp(fastforest_path) 
 
     for input in inputs:
         df = make_rdf(input.paths, client, args.npartitions)

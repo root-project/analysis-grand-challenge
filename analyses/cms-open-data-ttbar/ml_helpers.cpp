@@ -69,8 +69,9 @@ std::map<int, std::vector<ROOT::RVecI>> get_permutations_dict (size_t max_n_jets
     return permutations_dict;
 }
 
-std::map<std::string, fastforest::FastForest> get_fastforests (const std::string& path_to_models, size_t nfeatures) {
+std::map<std::string, fastforest::FastForest> get_fastforests (const std::string& path_to_models) {
 
+    size_t nfeatures=20;
     std::vector<std::string> feature_names(nfeatures);
     for (int i = 0; i < nfeatures; ++i) {
         feature_names[i] = "f"+std::to_string(i);

@@ -54,24 +54,38 @@ ml_features_config: list[MLHistoConf] = [
 
 
 
-def compile_mlhelpers_cpp(fastforest_path, max_n_jets=6):
-    include = os.path.join(fastforest_path, "include")
-    lib = os.path.join(fastforest_path, "lib")
+def setup_mlhelpers_cpp(fastforest_path, max_n_jets=6):
+
+    # the default value of max_n_jets is the same as in the refererence implementation
+    # https://github.com/iris-hep/analysis-grand-challenge
+
+    # For compiling ml_helpers.cpp, it is necessary to set paths for FastForest (https://github.com/guitargeek/XGBoost-FastForest) libraries and headers.
+
+    # The installed library is supposed to look like this:
+    # fastforest_path/
+    # ├── include
+    # │   └── fastforest.h
+    # └── lib
+    #     ├── libfastforest.so -> libfastforest.so.1
+    #     ├── libfastforest.so.0.2
+    #     └── libfastforest.so.1 -> libfastforest.so.0.2
+
+    include = os.path.join(fastforest_path, "include") # path for headers
+    lib = os.path.join(fastforest_path, "lib") # path for libraries
     ROOT.gSystem.AddIncludePath(f"-I{include}")
     ROOT.gSystem.AddLinkedLibs(f"-L{lib} -lfastforest")
     ROOT.gSystem.Load(f"{lib}/libfastforest.so.1")
     ROOT.gSystem.CompileMacro("ml_helpers.cpp", "kO")
 
-    ROOT.gInterpreter.Declare(
-        """
-                              auto models = get_fastforests("models/", 20);
-                              auto feven = models["even"];
-                              auto fodd = models["odd"];
-                              """
-    )
+    # Initialize FastForest models. 
+    # Our BDT models have 20 input features according to the AGC documentation
+    # https://agc.readthedocs.io/en/latest/taskbackground.html#machine-learning-component
 
     ROOT.gInterpreter.Declare(
         f"""
+        auto models = get_fastforests("models/");
+        auto feven = models["even"];
+        auto fodd = models["odd"];
         size_t max_n_jets = {max_n_jets};
         std::map<int, std::vector<ROOT::RVecI>> permutations = get_permutations_dict(max_n_jets);
         """
@@ -127,7 +141,7 @@ def define_features(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
         .Define("bL_idx", "permutations[std::min(Jet_pt_cut.size(), max_n_jets)][3]")
     )
 
-    # # Apply indexes to jets. Jets pt and btagCSVV2 and qgl are features itself (12 features)
+    # Apply indexes to jets. Jets pt and btagCSVV2 and qgl are features itself (12 features)
     df = (
         df
         # not features themself, but needed to construct features
@@ -172,7 +186,7 @@ def define_features(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
         )
     )
 
-    # # build features 8 other features
+    # build features 8 other features
     df = (
         df.Define(
             f"{feature_names[0]}",
