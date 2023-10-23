@@ -1,6 +1,6 @@
 import ROOT
 from utils import AGCResult
-
+from ml import ml_features_config
 
 def save_plots(results: list[AGCResult]):
     width = 2160
@@ -87,8 +87,6 @@ def save_plots(results: list[AGCResult]):
     c.SaveAs("jet.png")
 
 def save_ml_plots(results: list[AGCResult]):
-    
-    from ml import ml_features_config
 
     width = 2160
     height = 2160
