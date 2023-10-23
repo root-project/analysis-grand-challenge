@@ -86,19 +86,13 @@ std::map<std::string, fastforest::FastForest> get_fastforests (const std::string
 
 
     
-ROOT::RVecF inference(const ROOT::VecOps::RVec<ROOT::RVecD> &features, const fastforest::FastForest &forest, bool check_features=false) {
+ROOT::RVecF inference(const ROOT::VecOps::RVec<ROOT::RVecD> &features, const fastforest::FastForest &forest) {
 
     size_t npermutations = features.at(0).size();
     size_t nfeatures = features.size();
     ROOT::RVecF res(npermutations);
     float input[nfeatures];
 
-    if (check_features) {
-        for (int i = 0; i < nfeatures; ++i) {
-            assert(features.at(i).size() == npermutations);
-        }
-    }
-    
     for (int i = 0; i < npermutations; ++i) {
         for (int j = 0; j < nfeatures; ++j) {
             input[j] = features.at(j).at(i);

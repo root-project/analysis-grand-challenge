@@ -244,7 +244,7 @@ def predict_proba(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
         """
         bool is_even = (event % 2 == 0);
         const auto& forest = (is_even) ? fodd : feven;
-        return inference(features, forest, true);
+        return inference(features, forest);
         """,
     )
 
