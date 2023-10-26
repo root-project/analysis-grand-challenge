@@ -45,7 +45,7 @@ feature_labels = [
 class MLHistoConf:
   name: str
   title: str
-  binning: (float, float, int) # nbins, low, high
+  binning: (int, float, float) # nbins, low, high
 
 ml_features_config: list[MLHistoConf] = [
     MLHistoConf(name = feature_names[i], title = feature_labels[i], binning = (25, bin_low[i], bin_high[i])) for i in range(len(feature_names))

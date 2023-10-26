@@ -42,6 +42,10 @@ std::map<std::string, std::vector<int>> get_permutations (std::string jet_labels
                    permutations["w2"][i], 
                    permutations["l"][i], 
                    permutations["h"][i]} is a i-th permutation of indexes.
+
+    Note:   this function does not produce permutations in the same order as in the reference implementation
+    which results in slightly mismatching final histograms.
+    possibly because sometimes the order of the 2 w-jets is inverted w.r.t. coffea (ref. implementation)
     */
     std::map<std::string, std::vector<int>> permutations;
     int count = 0, N = jet_labels.size();
@@ -54,6 +58,8 @@ std::map<std::string, std::vector<int>> get_permutations (std::string jet_labels
         }
         count = 0; // needs to be reset after every itaration over labels
     } while (std::next_permutation(jet_labels.begin(), jet_labels.end()));
+
+
     return permutations;
 }
 
@@ -72,7 +78,10 @@ std::map<int, std::vector<ROOT::RVecI>> get_permutations_dict (size_t max_n_jets
     return permutations_dict;
 }
 
+
 std::map<std::string, fastforest::FastForest> get_fastforests (const std::string& path_to_models) {
+
+    // path_to_models should end with "/"
 
     size_t nfeatures=20;
     std::vector<std::string> feature_names(nfeatures);
