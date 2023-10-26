@@ -1,6 +1,8 @@
-import ROOT
 import os
 from dataclasses import dataclass
+from typing import Tuple
+
+import ROOT
 
 # histogram bin lower limit to use for each ML input feature
 bin_low = [0, 0, 0, 0, 50, 50, 50, 50, 25, 25, 25, 25, 0, 0, 0, 0, -1, -1, -1, -1]
@@ -45,7 +47,7 @@ feature_labels = [
 class MLHistoConf:
   name: str
   title: str
-  binning: (int, float, float) # nbins, low, high
+  binning: Tuple[int, float, float] # nbins, low, high
 
 ml_features_config: list[MLHistoConf] = [
     MLHistoConf(name = feature_names[i], title = feature_labels[i], binning = (25, bin_low[i], bin_high[i])) for i in range(len(feature_names))

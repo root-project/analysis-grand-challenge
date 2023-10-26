@@ -2,24 +2,23 @@ import argparse
 import os
 from pathlib import Path
 from time import time
-from typing import Optional
+from typing import Optional, Tuple
 
+import ml
 import ROOT
 from distributed import Client, LocalCluster, SSHCluster, get_worker
-from plotting import save_plots, save_ml_plots
+from ml import (
+    define_features,
+    infer_output_ml_features,
+    ml_features_config,
+)
+from plotting import save_ml_plots, save_plots
 from utils import (
     AGCInput,
     AGCResult,
     postprocess_results,
     retrieve_inputs,
     save_histos,
-)
-
-import ml
-from ml import (
-    ml_features_config,
-    define_features,
-    infer_output_ml_features,
 )
 
 # Using https://atlas-groupdata.web.cern.ch/atlas-groupdata/dev/AnalysisTop/TopDataPreparation/XSection-MC15-13TeV.data
@@ -186,7 +185,7 @@ def define_trijet_mass(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
 
 def book_histos(
     df: ROOT.RDataFrame, process: str, variation: str, nevents: int, inference=False
-) -> (list[AGCResult], list[AGCResult]):
+) -> Tuple[list[AGCResult], list[AGCResult]]:
     """Return the pair of lists of RDataFrame results pertaining to the given process and variation.
     The first list contains histograms of reconstructed HT and trijet masses.
     The second contains ML inference outputs"""
@@ -284,7 +283,7 @@ def book_histos(
             results.append(AGCResult(nominal_histo, region, process, variation, nominal_histo))
         print(f"Booked histogram {histo_model.fName}")
 
-    ml_results = []
+    ml_results: list[AGCResult] = []
 
     if not inference:
         return (results, ml_results)
@@ -355,7 +354,8 @@ def main() -> None:
         client = None
         if args.inference:
             ml.load_cpp(fastforest_path="./fastforest")
-        else: load_cpp()
+        else: 
+            load_cpp()
             
 
         run_graphs = ROOT.RDF.RunGraphs

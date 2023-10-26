@@ -1,6 +1,7 @@
 import ROOT
-from utils import AGCResult
 from ml import ml_features_config
+from utils import AGCResult
+
 
 def save_plots(results: list[AGCResult]):
     width = 2160
