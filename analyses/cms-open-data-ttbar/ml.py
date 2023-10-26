@@ -95,144 +95,30 @@ def setup_mlhelpers_cpp(fastforest_path, max_n_jets=6):
     )
 
 
-def define_lepton_fields(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
-    # prepare lepton fields (p4, eta, phi)
-    df = (
-        df.Define("Electron_phi_cut", "Electron_phi[Electron_mask]")
-        .Define("Electron_eta_cut", "Electron_eta[Electron_mask]")
-        .Define(
-            "Electron_p4",
-            """
-            ConstructP4 (
-                    Electron_pt[Electron_mask], 
-                    Electron_eta_cut, 
-                    Electron_phi_cut, 
-                    Electron_mass[Electron_mask]
-            )
-            """,
-        )
-        .Define("Muon_phi_cut", "Muon_phi[Muon_mask]")
-        .Define("Muon_eta_cut", "Muon_eta[Muon_mask]")
-        .Define(
-            "Muon_p4",
-            """
-            ConstructP4 (
-                    Muon_pt[Muon_mask], 
-                    Muon_eta_cut, 
-                    Muon_phi_cut, 
-                    Muon_mass[Muon_mask]
-            )            
-            """,
-        )
-        .Define("Lepton_phi", "Concatenate(Electron_phi_cut, Muon_phi_cut)")
-        .Define("Lepton_eta", "Concatenate(Electron_eta_cut, Muon_eta_cut)")
-        .Define("Lepton_p4", "Concatenate(Electron_p4, Muon_p4)")
-    )
-
-    return df
-
-
 def define_features(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
-    # prepare lepton fields (p4, eta, phi)
-    df = define_lepton_fields(df)
-
-    # get indexes of four jets
-    df = (
-        df.Define("W1_idx", "permutations[std::min(Jet_pt_cut.size(), max_n_jets)][0]")
-        .Define("W2_idx", "permutations[std::min(Jet_pt_cut.size(), max_n_jets)][1]")
-        .Define("bH_idx", "permutations[std::min(Jet_pt_cut.size(), max_n_jets)][2]")
-        .Define("bL_idx", "permutations[std::min(Jet_pt_cut.size(), max_n_jets)][3]")
-    )
-
-    # Apply indexes to jets. Jets pt and btagCSVV2 and qgl are features itself (12 features)
-    df = (
-        df
-        # not features themself, but needed to construct features
-        .Define("JetW1_phi", "Take(Jet_phi_cut, W1_idx)")
-        .Define("JetW2_phi", "Take(Jet_phi_cut, W2_idx)")
-        .Define("JetbL_phi", "Take(Jet_phi_cut, bL_idx)")
-        .Define("JetbH_phi", "Take(Jet_phi_cut, bH_idx)")
-        .Define("JetW1_eta", "Take(Jet_eta_cut, W1_idx)")
-        .Define("JetW2_eta", "Take(Jet_eta_cut, W2_idx)")
-        .Define("JetbL_eta", "Take(Jet_eta_cut, bL_idx)")
-        .Define("JetbH_eta", "Take(Jet_eta_cut, bH_idx)")
-        #         # 12 features
-        .Define(f"{feature_names[8]}", "Take(Jet_pt_cut, W1_idx)")
-        .Define(f"{feature_names[9]}", "Take(Jet_pt_cut, W2_idx)")
-        .Define(f"{feature_names[10]}", "Take(Jet_pt_cut, bH_idx)")
-        .Define(f"{feature_names[11]}", "Take(Jet_pt_cut, bL_idx)")
-        .Define(f"{feature_names[12]}", "Take(Jet_btagCSVV2_cut, W1_idx)")
-        .Define(f"{feature_names[13]}", "Take(Jet_btagCSVV2_cut, W2_idx)")
-        .Define(f"{feature_names[14]}", "Take(Jet_btagCSVV2_cut, bH_idx)")
-        .Define(f"{feature_names[15]}", "Take(Jet_btagCSVV2_cut, bL_idx)")
-        .Define("Jet_qgl_cut", "Jet_qgl[Jet_mask]")
-        .Define(f"{feature_names[16]}", "Take(Jet_qgl_cut, W1_idx)")
-        .Define(f"{feature_names[17]}", "Take(Jet_qgl_cut, W2_idx)")
-        .Define(f"{feature_names[18]}", "Take(Jet_qgl_cut, bH_idx)")
-        .Define(f"{feature_names[19]}", "Take(Jet_qgl_cut, bL_idx)")
-        #        jets' four-momenta
-        .Define(
-            "JetW1_p4",
-            f"ConstructP4({feature_names[8]}, JetW1_eta, JetW1_phi, Take(Jet_mass_cut, W1_idx))",
-        )
-        .Define(
-            "JetW2_p4",
-            f"ConstructP4({feature_names[9]}, JetW2_eta, JetW2_phi, Take(Jet_mass_cut, W2_idx))",
-        )
-        .Define(
-            "JetbL_p4",
-            f"ConstructP4({feature_names[11]}, JetbL_eta, JetbL_phi, Take(Jet_mass_cut, bL_idx))",
-        )
-        .Define(
-            "JetbH_p4",
-            f"ConstructP4({feature_names[10]}, JetbH_eta, JetbH_phi, Take(Jet_mass_cut, bH_idx))",
-        )
-    )
-
-    # build features 8 other features
-    df = (
-        df.Define(
-            f"{feature_names[0]}",
-            "sqrt(pow(Lepton_eta.at(0)-JetbL_eta,2.)+pow(Lepton_phi.at(0)-JetbL_phi,2.))",
-        )
-        .Define(
-            f"{feature_names[1]}", "sqrt(pow(JetW1_eta-JetW2_eta,2.)+pow(JetW1_phi-JetW2_phi,2.))"
-        )
-        .Define(
-            f"{feature_names[2]}", "sqrt(pow(JetW1_eta-JetbH_eta,2.)+pow(JetW1_phi-JetbH_phi,2.))"
-        )
-        .Define(
-            f"{feature_names[3]}", "sqrt(pow(JetW2_eta-JetbH_eta,2.)+pow(JetW2_phi-JetbH_phi,2.))"
-        )
-        .Define(
-            f"{feature_names[4]}",
-            "return Map(JetbL_p4+Lepton_p4.at(0), [] (const ROOT::Math::PxPyPzMVector &p) {return p.M();})",
-        )
-        .Define(
-            f"{feature_names[5]}",
-            "return Map(JetW1_p4+JetW2_p4, [] (const ROOT::Math::PxPyPzMVector &p) {return p.M();})",
-        )
-        .Define(
-            f"{feature_names[6]}",
-            "return Map(JetW1_p4+JetW2_p4+JetbH_p4, [] (const ROOT::Math::PxPyPzMVector &p) {return p.M();})",
-        )
-        .Define(
-            f"{feature_names[7]}",
-            "return Map(JetW1_p4+JetW2_p4+JetbH_p4, [] (const ROOT::Math::PxPyPzMVector &p) {return p.Pt();})",
-        )
-    )
-    # put all features into one collection
-
-    def list_as_str (feature_list: list[str]) -> str:
-        """ 
-        accept [f0, f1, ..., fN]
-        return "{f0, f1, ..., fN}" 
-        """
-        return feature_list.__str__().replace("[", "{").replace("]", "}").replace("'", "")
     
-    df = df.Define("features", f"ROOT::VecOps::RVec<ROOT::RVecF>({list_as_str(feature_names)})")
-
-    return df
+    return df.Define(
+        "features", 
+        """
+        eval_features(
+            permutations.at( std::min(Jet_pt_cut.size(), max_n_jets) ),
+            Jet_pt_cut, 
+            Jet_eta_cut, 
+            Jet_phi_cut, 
+            Jet_mass_cut, 
+            Jet_btagCSVV2_cut, 
+            Jet_qgl[Jet_mask],
+            Electron_pt[Electron_mask],
+            Electron_eta[Electron_mask],
+            Electron_phi[Electron_mask],
+            Electron_mass[Electron_mask],
+            Muon_pt[Muon_mask],
+            Muon_eta[Muon_mask],
+            Muon_phi[Muon_mask],
+            Muon_mass[Muon_mask]
+        )
+        """
+    )
 
 
 def predict_proba(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
@@ -259,7 +145,6 @@ def infer_output_ml_features(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
     """
 
     df = predict_proba(df)
-    for i, feature in enumerate(feature_names):
-        df = df.Define(f"results{i}", f"{feature}[ArgMax(proba)]")
-
+    for i in range(len(ml_features_config)):
+        df = df.Define(f"results{i}", f"features[{i}][ArgMax(proba)]")
     return df
