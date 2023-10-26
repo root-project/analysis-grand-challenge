@@ -15,8 +15,8 @@ from utils import (
     save_histos,
 )
 
+import ml
 from ml import (
-    setup_mlhelpers_cpp,
     ml_features_config,
     define_features,
     infer_output_ml_features,
@@ -129,7 +129,8 @@ def make_rdf(
         )
         d._headnode.backend.distribute_unique_paths(
             [
-                "helpers.cpp",
+                "helpers.h",
+                "ml_helpers.cpp",
             ]
         )
         return d
@@ -353,13 +354,19 @@ def main() -> None:
         print(f"Number of threads: {ROOT.GetThreadPoolSize()}")
         client = None
         if args.inference:
-            setup_mlhelpers_cpp(fastforest_path="./fastforest")
+            ml.load_cpp(fastforest_path="./fastforest")
         else: load_cpp()
+            
+
         run_graphs = ROOT.RDF.RunGraphs
     else:
         # Setup for distributed RDataFrame
         client = create_dask_client(args.scheduler, args.ncores, args.hosts)
-        ROOT.RDF.Experimental.Distributed.initialize(load_cpp)
+        if args.inference: 
+            #TODO: make ml.load_cpp working on distributed
+            ROOT.RDF.Experimental.Distributed.initialize(ml.load_cpp, "./fastforest")
+        else:
+            ROOT.RDF.Experimental.Distributed.initialize(load_cpp)
         run_graphs = ROOT.RDF.Experimental.Distributed.RunGraphs
 
     # Book RDataFrame results

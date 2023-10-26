@@ -54,7 +54,7 @@ ml_features_config: list[MLHistoConf] = [
 
 
 
-def setup_mlhelpers_cpp(fastforest_path, max_n_jets=6):
+def load_cpp(fastforest_path, max_n_jets=6):
 
     # the default value of max_n_jets is the same as in the refererence implementation
     # https://github.com/iris-hep/analysis-grand-challenge
