@@ -325,10 +325,10 @@ def load_cpp():
         # when using distributed RDataFrame 'helpers.cpp' is copied to the local_directory
         # of every worker (via `distribute_unique_paths`)
         localdir = get_worker().local_directory
-        cpp_source = Path(localdir) / "helpers.cpp"
+        cpp_source = Path(localdir) / "helpers.h"
     except ValueError:
         # must be local execution
-        cpp_source = "helpers.cpp"
+        cpp_source = "helpers.h"
 
     ROOT.gSystem.CompileMacro(str(cpp_source), "kO")
 
@@ -352,7 +352,9 @@ def main() -> None:
         ROOT.EnableImplicitMT(args.ncores)
         print(f"Number of threads: {ROOT.GetThreadPoolSize()}")
         client = None
-        load_cpp()
+        if args.inference:
+            setup_mlhelpers_cpp(fastforest_path="./fastforest")
+        else: load_cpp()
         run_graphs = ROOT.RDF.RunGraphs
     else:
         # Setup for distributed RDataFrame
@@ -366,11 +368,6 @@ def main() -> None:
     )
     results: list[AGCResult] = []
     ml_results: list[AGCResult] = []
-
-    if args.inference:
-        # hardcoded for now: we expect ROOT to integrate FastForest soon
-        fastforest_path="./fastforest" # the path for fastforest libraries and headers
-        setup_mlhelpers_cpp(fastforest_path) 
 
     for input in inputs:
         df = make_rdf(input.paths, client, args.npartitions)

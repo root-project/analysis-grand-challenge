@@ -1,9 +1,12 @@
 #include "fastforest.h"
+#include "helpers.h"
+
 #include <cmath>
 #include <assert.h>
 #include <map>
 #include <algorithm>
 #include "ROOT/RVec.hxx"
+#include <Math/Vector4D.h>
 
 // copying jet_labels because we need to modify it
 std::map<std::string, std::vector<int>> get_permutations (std::string jet_labels) {
@@ -85,8 +88,104 @@ std::map<std::string, fastforest::FastForest> get_fastforests (const std::string
 
 
 
+
+ROOT::RVec<ROOT::RVecD> eval_features (
+    const ROOT::RVec<ROOT::RVecI>& permut_indexes,
+    const ROOT::RVecD& jet_pt,
+    const ROOT::RVecD& jet_eta,
+    const ROOT::RVecD& jet_phi,
+    const ROOT::RVecD& jet_mass,
+    const ROOT::RVecD& jet_btag,
+    const ROOT::RVecD& jet_qgl,
+    const ROOT::RVecD& el_pt,
+    const ROOT::RVecD& el_eta,
+    const ROOT::RVecD& el_phi,
+    const ROOT::RVecD& el_mass,
+    const ROOT::RVecD& mu_pt,
+    const ROOT::RVecD& mu_eta,
+    const ROOT::RVecD& mu_phi,
+    const ROOT::RVecD& mu_mass   
+)
+{
+    using namespace ROOT::VecOps;
+
+    // Part 1. Evaluate Leptons eta, phi, four-momenta
+    auto lep_pt = Concatenate(el_pt, mu_pt);
+    auto lep_eta = Concatenate(el_eta, mu_eta);
+    auto lep_phi = Concatenate(el_phi, mu_phi);
+    auto lep_mass = Concatenate(el_mass, mu_mass);
+    auto lep_p4 = ConstructP4(lep_pt, lep_eta, lep_phi, lep_mass);
+
+    // Part 2. Evaluating features
+
+    // get jets indexes of each label
+    // w1, w2, bH, bL are jets labels
+
+    auto w1_idx = permut_indexes.at(0);
+    auto w2_idx = permut_indexes.at(1);
+    auto bH_idx = permut_indexes.at(2);
+    auto bL_idx = permut_indexes.at(3);
+
     
-ROOT::RVecF inference(const ROOT::VecOps::RVec<ROOT::RVecD> &features, const fastforest::FastForest &forest) {
+    // Apply indexes to jets. 
+
+    auto w1_phi = Take(jet_phi, w1_idx);
+    auto w2_phi = Take(jet_phi, w2_idx);
+    auto bH_phi = Take(jet_phi, bH_idx);
+    auto bL_phi = Take(jet_phi, bL_idx);
+
+    auto w1_eta = Take(jet_eta, w1_idx);
+    auto w2_eta = Take(jet_eta, w2_idx);
+    auto bH_eta = Take(jet_eta, bH_idx);
+    auto bL_eta = Take(jet_eta, bL_idx);
+
+    auto w1_pt = Take(jet_pt, w1_idx); // f8
+    auto w2_pt = Take(jet_pt, w2_idx); // f9
+    auto bH_pt = Take(jet_pt, bH_idx); // f10
+    auto bL_pt = Take(jet_pt, bL_idx); // f11
+
+    auto w1_btag = Take(jet_btag, w1_idx); // f12
+    auto w2_btag = Take(jet_btag, w2_idx); // f13
+    auto bH_btag = Take(jet_btag, bH_idx); // f14
+    auto bL_btag = Take(jet_btag, bL_idx); // f15
+
+
+    auto w1_qgl = Take(jet_qgl, w1_idx); // f16
+    auto w2_qgl = Take(jet_qgl, w2_idx); // f17
+    auto bH_qgl = Take(jet_qgl, bH_idx); // f18
+    auto bL_qgl = Take(jet_qgl, bL_idx); // f19
+
+    //  jets' four-momenta
+    auto w1_p4 = ConstructP4(w1_pt, w1_eta, w1_phi, Take(jet_mass, w1_idx)); 
+    auto w2_p4 = ConstructP4(w2_pt, w2_eta, w2_phi, Take(jet_mass, w2_idx));
+    auto bH_p4 = ConstructP4(bH_pt, bH_eta, bH_phi, Take(jet_mass, bH_idx));
+    auto bL_p4 = ConstructP4(bL_pt, bL_eta, bL_phi, Take(jet_mass, bL_idx));
+
+    // delta R
+
+    auto dR_lepton_bL = sqrt(pow(lep_eta.at(0)-bL_eta,2.)+pow(lep_phi.at(0)-bL_phi,2.)); // f0
+    auto dR_w1w2 = sqrt(pow(w1_eta-w2_eta,2.)+pow(w1_phi-w2_phi,2.)); // f1
+    auto dR_w1bH = sqrt(pow(w1_eta-bH_eta,2.)+pow(w1_phi-bH_phi,2.)); // f2
+    auto dR_w2bH = sqrt(pow(w2_eta-bH_eta,2.)+pow(w2_phi-bH_phi,2.)); // f3
+
+    // combined mass
+    auto M_lepton_bL = Map(bL_p4+lep_p4.at(0), [] (const ROOT::Math::PxPyPzMVector &p) {return p.M();}); //f4
+    auto M_w1w2 = Map(w1_p4+w2_p4, [] (const ROOT::Math::PxPyPzMVector &p) {return p.M();}); //f5
+    auto M_w1w2bH = Map(w1_p4+w2_p4+bH_p4, [] (const ROOT::Math::PxPyPzMVector &p) {return p.M();}); //f6
+
+    // combined transverse momentum
+    auto Pt_w1w2bH = Map(w1_p4+w2_p4+bH_p4, [] (const ROOT::Math::PxPyPzMVector &p) {return p.Pt();}); //f7
+
+    // put all features into single vector
+    return ROOT::RVec<ROOT::RVecD> ({
+        dR_lepton_bL, dR_w1w2, dR_w1bH, dR_w2bH, M_lepton_bL, M_w1w2, M_w1w2bH, Pt_w1w2bH,
+        w1_pt, w2_pt, bH_pt, bL_pt, w1_btag, w2_btag, bH_btag, bL_btag, w1_qgl, w2_qgl, bH_qgl, bL_qgl
+    });
+
+}
+
+    
+ROOT::RVecF inference(const ROOT::RVec<ROOT::RVecD> &features, const fastforest::FastForest &forest) {
 
     size_t npermutations = features.at(0).size();
     size_t nfeatures = features.size();
