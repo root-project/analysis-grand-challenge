@@ -82,13 +82,16 @@ def setup_mlhelpers_cpp(fastforest_path, max_n_jets=6):
     # https://agc.readthedocs.io/en/latest/taskbackground.html#machine-learning-component
 
     ROOT.gInterpreter.Declare(
+        """
+        const std::map<std::string, fastforest::FastForest> fastforest_models = get_fastforests("models/");
+        const fastforest::FastForest& feven = fastforest_models.at("even");
+        const fastforest::FastForest& fodd = fastforest_models.at("odd");
+        """.__add__(
         f"""
-        auto models = get_fastforests("models/");
-        auto feven = models["even"];
-        auto fodd = models["odd"];
         size_t max_n_jets = {max_n_jets};
         std::map<int, std::vector<ROOT::RVecI>> permutations = get_permutations_dict(max_n_jets);
         """
+        )
     )
 
 
