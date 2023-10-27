@@ -84,7 +84,16 @@ def load_cpp(fastforest_path, max_n_jets=6):
     # https://agc.readthedocs.io/en/latest/taskbackground.html#machine-learning-component
 
     ROOT.gInterpreter.Declare(
+        
+        # **Conditional derectives used to avoid redefinition error during distributed computing**
+        # Note:
+        # * moving all stuff in `Declare` to `ml_helpers.cpp` cancels the necessity of using `ifndef`
+        # * coming soon feature is `gInterpreter.Declare` with automatic header guards 
+        # https://indico.fnal.gov/event/23628/contributions/240608/attachments/154873/201557/distributed_RDF_padulano_ROOT_workshop_2022.pdf
+
         """
+        #ifndef AGC_MODELS 
+
         const std::map<std::string, fastforest::FastForest> fastforest_models = get_fastforests("models/");
         const fastforest::FastForest& feven = fastforest_models.at("even");
         const fastforest::FastForest& fodd = fastforest_models.at("odd");
@@ -92,6 +101,9 @@ def load_cpp(fastforest_path, max_n_jets=6):
         f"""
         size_t max_n_jets = {max_n_jets};
         std::map<int, std::vector<ROOT::RVecI>> permutations = get_permutations_dict(max_n_jets);
+
+        #endif
+        #define AGC_MODELS
         """
         )
     )
