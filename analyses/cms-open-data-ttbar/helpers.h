@@ -10,7 +10,7 @@
 #include <Math/Vector4D.h>
 
 // functions creating systematic variations
-double random_gaus()
+inline double random_gaus()
 {
    thread_local std::random_device rd{};
    thread_local std::mt19937 gen{rd()};
@@ -18,7 +18,7 @@ double random_gaus()
    return d(gen);
 }
 
-ROOT::RVecF jet_pt_resolution(std::size_t size)
+inline ROOT::RVecF jet_pt_resolution(std::size_t size)
 {
    // normal distribution with 5% variations, shape matches jets
    ROOT::RVecF res(size);
@@ -27,12 +27,12 @@ ROOT::RVecF jet_pt_resolution(std::size_t size)
    return res;
 }
 
-float pt_scale_up()
+inline float pt_scale_up()
 {
    return 1.03;
 }
 
-ROOT::RVecF btag_weight_variation(const ROOT::RVecF &jet_pt)
+inline ROOT::RVecF btag_weight_variation(const ROOT::RVecF &jet_pt)
 {
    // weight variation depending on i-th jet pT (7.5% as default value, multiplied by i-th jet pT / 50 GeV)
    ROOT::RVecF res;
@@ -44,13 +44,13 @@ ROOT::RVecF btag_weight_variation(const ROOT::RVecF &jet_pt)
    return res;
 }
 
-ROOT::RVecF flat_variation()
+inline ROOT::RVecF flat_variation()
 {
    // 2.5% weight variations
    return 1 + ROOT::RVecF({.025, -.025});
 }
 
-ROOT::RVec<ROOT::Math::PxPyPzMVector> ConstructP4 (const ROOT::RVecD & Pt, const ROOT::RVecD & Eta, const ROOT::RVecD & Phi, const ROOT::RVecD & M)
+inline ROOT::RVec<ROOT::Math::PxPyPzMVector> ConstructP4 (const ROOT::RVecD & Pt, const ROOT::RVecD & Eta, const ROOT::RVecD & Phi, const ROOT::RVecD & M)
 {
 
    return ROOT::VecOps::Construct<ROOT::Math::PxPyPzMVector>(
