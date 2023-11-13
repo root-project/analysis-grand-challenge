@@ -143,4 +143,4 @@ def postprocess_results(results: list[AGCResult]):
 def save_histos(results: list[ROOT.TH1D], output_fname: str):
     with ROOT.TFile.Open(output_fname, "recreate") as out_file:
         for result in results:
-            out_file.WriteObject(result, result.GetName().replace('_nominal', ''))
+            out_file.WriteObject(result, result.GetName().replace("_nominal", ""))

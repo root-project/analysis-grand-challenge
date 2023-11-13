@@ -12,11 +12,26 @@ bin_high = [6, 6, 6, 6, 300, 300, 550, 550, 300, 300, 300, 300, 1, 1, 1, 1, 1, 1
 
 # names of each ML input feature (used when creating histograms)
 feature_names = [
-    "deltar_leptonbtoplep", "deltar_w1w2", "deltar_w1btophad", "deltar_w2btophad",
-    "mass_leptonbtoplep",   "mass_w1w2",   "mass_w1w2btophad", "pt_w1w2btophad",
-    "pt_w1",                "pt_w2",       "pt_btophad",       "pt_btoplep", 
-    "btag_w1",              "btag_w2",     "btag_btophad",     "btag_btoplep", 
-    "qgl_w1",               "qgl_w2",      "qgl_btophad",      "qgl_btoplep",
+    "deltar_leptonbtoplep",
+    "deltar_w1w2",
+    "deltar_w1btophad",
+    "deltar_w2btophad",
+    "mass_leptonbtoplep",
+    "mass_w1w2",
+    "mass_w1w2btophad",
+    "pt_w1w2btophad",
+    "pt_w1",
+    "pt_w2",
+    "pt_btophad",
+    "pt_btoplep",
+    "btag_w1",
+    "btag_w2",
+    "btag_btophad",
+    "btag_btoplep",
+    "qgl_w1",
+    "qgl_w2",
+    "qgl_btophad",
+    "qgl_btoplep",
 ]
 
 # labels for each ML input feature (used for plotting)
@@ -43,21 +58,23 @@ feature_labels = [
     "Quark vs Gluon likelihood discriminator of the b_{top-lep} Jet",
 ]
 
+
 @dataclass
 class MLHistoConf:
-  name: str
-  title: str
-  binning: Tuple[int, float, float] # nbins, low, high
+    name: str
+    title: str
+    binning: Tuple[int, float, float]  # nbins, low, high
+
 
 ml_features_config: list[MLHistoConf] = [
-    MLHistoConf(name = feature_names[i], title = feature_labels[i], binning = (25, bin_low[i], bin_high[i])) for i in range(len(feature_names))
+    MLHistoConf(
+        name=feature_names[i], title=feature_labels[i], binning=(25, bin_low[i], bin_high[i])
+    )
+    for i in range(len(feature_names))
 ]
 
 
-
-
 def load_cpp(fastforest_path, max_n_jets=6):
-
     # the default value of max_n_jets is the same as in the refererence implementation
     # https://github.com/iris-hep/analysis-grand-challenge
 
@@ -72,25 +89,23 @@ def load_cpp(fastforest_path, max_n_jets=6):
     #     ├── libfastforest.so.0.2
     #     └── libfastforest.so.1 -> libfastforest.so.0.2
 
-    include = os.path.join(fastforest_path, "include") # path for headers
-    lib = os.path.join(fastforest_path, "lib") # path for libraries
+    include = os.path.join(fastforest_path, "include")  # path for headers
+    lib = os.path.join(fastforest_path, "lib")  # path for libraries
     ROOT.gSystem.AddIncludePath(f"-I{include}")
     ROOT.gSystem.AddLinkedLibs(f"-L{lib} -lfastforest")
     ROOT.gSystem.Load(f"{lib}/libfastforest.so.1")
     ROOT.gSystem.CompileMacro("ml_helpers.cpp", "kO")
 
-    # Initialize FastForest models. 
+    # Initialize FastForest models.
     # Our BDT models have 20 input features according to the AGC documentation
     # https://agc.readthedocs.io/en/latest/taskbackground.html#machine-learning-component
 
     ROOT.gInterpreter.Declare(
-        
         # **Conditional derectives used to avoid redefinition error during distributed computing**
         # Note:
         # * moving all stuff in `Declare` to `ml_helpers.cpp` cancels the necessity of using `ifndef`
-        # * coming soon feature is `gInterpreter.Declare` with automatic header guards 
+        # * coming soon feature is `gInterpreter.Declare` with automatic header guards
         # https://indico.fnal.gov/event/23628/contributions/240608/attachments/154873/201557/distributed_RDF_padulano_ROOT_workshop_2022.pdf
-
         """
         #ifndef AGC_MODELS 
 
@@ -98,7 +113,7 @@ def load_cpp(fastforest_path, max_n_jets=6):
         const fastforest::FastForest& feven = fastforest_models.at("even");
         const fastforest::FastForest& fodd = fastforest_models.at("odd");
         """.__add__(
-        f"""
+            f"""
         size_t max_n_jets = {max_n_jets};
         std::map<int, std::vector<ROOT::RVecI>> permutations = get_permutations_dict(max_n_jets);
 
@@ -110,9 +125,8 @@ def load_cpp(fastforest_path, max_n_jets=6):
 
 
 def define_features(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
-    
     return df.Define(
-        "features", 
+        "features",
         """
         eval_features(
             permutations.at( std::min(Jet_pt_cut.size(), max_n_jets) ),
@@ -131,7 +145,7 @@ def define_features(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
             Muon_phi[Muon_mask],
             Muon_mass[Muon_mask]
         )
-        """
+        """,
     )
 
 
@@ -139,9 +153,9 @@ def predict_proba(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
     """get probability scores for every permutation in event"""
 
     # in inference, odd model applied to even events, while even model to odd events
-    # read more about inference in dedicated part of AGC documentation: 
-    # https://agc.readthedocs.io/en/latest/taskbackground.html#machine-learning-component  
-    
+    # read more about inference in dedicated part of AGC documentation:
+    # https://agc.readthedocs.io/en/latest/taskbackground.html#machine-learning-component
+
     return df.Define(
         "proba",
         """
