@@ -107,7 +107,7 @@ def load_cpp(fastforest_path, max_n_jets=6):
         # * coming soon feature is `gInterpreter.Declare` with automatic header guards
         # https://indico.fnal.gov/event/23628/contributions/240608/attachments/154873/201557/distributed_RDF_padulano_ROOT_workshop_2022.pdf
         """
-        #ifndef AGC_MODELS 
+        #ifndef AGC_MODELS
 
         const std::map<std::string, fastforest::FastForest> fastforest_models = get_fastforests("models/");
         const fastforest::FastForest& feven = fastforest_models.at("even");
@@ -130,11 +130,11 @@ def define_features(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
         """
         eval_features(
             permutations.at( std::min(Jet_pt_cut.size(), max_n_jets) ),
-            Jet_pt_cut, 
-            Jet_eta_cut, 
-            Jet_phi_cut, 
-            Jet_mass_cut, 
-            Jet_btagCSVV2_cut, 
+            Jet_pt_cut,
+            Jet_eta_cut,
+            Jet_phi_cut,
+            Jet_mass_cut,
+            Jet_btagCSVV2_cut,
             Jet_qgl[Jet_mask],
             Electron_pt[Electron_mask],
             Electron_eta[Electron_mask],

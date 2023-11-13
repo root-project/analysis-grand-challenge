@@ -55,12 +55,12 @@ ROOT::RVec<ROOT::Math::PxPyPzMVector> ConstructP4 (const ROOT::RVecD & Pt, const
 
    return ROOT::VecOps::Construct<ROOT::Math::PxPyPzMVector>(
                 ROOT::VecOps::Construct<ROOT::Math::PtEtaPhiMVector>(
-                    Pt, 
-                    Eta, 
-                    Phi, 
+                    Pt,
+                    Eta,
+                    Phi,
                     M
                 )
-          ); 
+          );
 }
 
 #endif

@@ -14,7 +14,7 @@ std::map<std::string, std::vector<int>> get_permutations (std::string jet_labels
     /*
     Builds unique jets permutations.
 
-    jet_labels - an  array of characters, each of them representing jet's label. 
+    jet_labels - an  array of characters, each of them representing jet's label.
 
     Two w-labels (w-jets), one h-label (hadronic b-tagged jet), one l-label (leptonic b-tagged jet).
 
@@ -30,17 +30,17 @@ std::map<std::string, std::vector<int>> get_permutations (std::string jet_labels
     std::sort(jet_labels.begin(), jet_labels.end());
 
     /*
-    All permutations of indexes are stored in variable permutations. 
+    All permutations of indexes are stored in variable permutations.
 
-    Keys of the map are presented as four unique labels: w1 (first W-jet), 
-                                                         w2 (second W-jet), 
-                                                         l (leptonic jet), 
-                                                         h (hadronic jet). 
+    Keys of the map are presented as four unique labels: w1 (first W-jet),
+                                                         w2 (second W-jet),
+                                                         l (leptonic jet),
+                                                         h (hadronic jet).
 
-    Every element of the array of indexes corresponds to a unique permutation. 
-    So the vector {permutations["w1"][i], 
-                   permutations["w2"][i], 
-                   permutations["l"][i], 
+    Every element of the array of indexes corresponds to a unique permutation.
+    So the vector {permutations["w1"][i],
+                   permutations["w2"][i],
+                   permutations["l"][i],
                    permutations["h"][i]} is a i-th permutation of indexes.
 
     Note:   this function does not produce permutations in the same order as in the reference implementation
@@ -67,11 +67,11 @@ std::map<int, std::vector<ROOT::RVecI>> get_permutations_dict (size_t max_n_jets
 
     // get permutations for different number of jets
     // every event have different number of jets: from 4 to max_n_jets
-    
+
     std::map<int, std::vector<ROOT::RVecI> > permutations_dict; // number of jets to permutations of jets indexes.
     std::string base = "wwhl";
     for (std::size_t N = 4; N <= max_n_jets; ++N) {
-        std::string jet_labels = base + std::string(N-4, 'o'); 
+        std::string jet_labels = base + std::string(N-4, 'o');
         std::map<std::string, std::vector<int>> permutations = get_permutations (jet_labels);
         permutations_dict[N] = std::vector<ROOT::RVecI>{permutations["w1"], permutations["w2"], permutations["h"], permutations["l"]};
     }
@@ -113,7 +113,7 @@ ROOT::RVec<ROOT::RVecD> eval_features (
     const ROOT::RVecD& mu_pt,
     const ROOT::RVecD& mu_eta,
     const ROOT::RVecD& mu_phi,
-    const ROOT::RVecD& mu_mass   
+    const ROOT::RVecD& mu_mass
 )
 {
     using namespace ROOT::VecOps;
@@ -135,8 +135,8 @@ ROOT::RVec<ROOT::RVecD> eval_features (
     auto bH_idx = permut_indexes.at(2);
     auto bL_idx = permut_indexes.at(3);
 
-    
-    // Apply indexes to jets. 
+
+    // Apply indexes to jets.
 
     auto w1_phi = Take(jet_phi, w1_idx);
     auto w2_phi = Take(jet_phi, w2_idx);
@@ -165,7 +165,7 @@ ROOT::RVec<ROOT::RVecD> eval_features (
     auto bL_qgl = Take(jet_qgl, bL_idx); // f19
 
     //  jets' four-momenta
-    auto w1_p4 = ConstructP4(w1_pt, w1_eta, w1_phi, Take(jet_mass, w1_idx)); 
+    auto w1_p4 = ConstructP4(w1_pt, w1_eta, w1_phi, Take(jet_mass, w1_idx));
     auto w2_p4 = ConstructP4(w2_pt, w2_eta, w2_phi, Take(jet_mass, w2_idx));
     auto bH_p4 = ConstructP4(bH_pt, bH_eta, bH_phi, Take(jet_mass, bH_idx));
     auto bL_p4 = ConstructP4(bL_pt, bL_eta, bL_phi, Take(jet_mass, bL_idx));
@@ -193,7 +193,7 @@ ROOT::RVec<ROOT::RVecD> eval_features (
 
 }
 
-    
+
 ROOT::RVecF inference(const ROOT::RVec<ROOT::RVecD> &features, const fastforest::FastForest &forest) {
 
     size_t npermutations = features.at(0).size();
