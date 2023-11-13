@@ -1,3 +1,6 @@
+#ifndef ML_HELPERS
+#define ML_HELPERS
+
 #include "fastforest.h"
 #include "helpers.h"
 
@@ -211,3 +214,5 @@ ROOT::RVecF inference(const ROOT::RVec<ROOT::RVecD> &features, const fastforest:
 
     return res;
 }
+
+#endif // ML_HELPERS

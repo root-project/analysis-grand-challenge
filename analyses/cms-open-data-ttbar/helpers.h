@@ -1,3 +1,6 @@
+#ifndef HELPERS
+#define HELPERS
+
 #include <random>
 #include <string>
 
@@ -5,9 +8,6 @@
 #include "TH1D.h"
 #include "TRandom3.h"
 #include <Math/Vector4D.h>
-
-
-#ifndef HELPERS
 
 // functions creating systematic variations
 double random_gaus()
@@ -64,6 +64,3 @@ ROOT::RVec<ROOT::Math::PxPyPzMVector> ConstructP4 (const ROOT::RVecD & Pt, const
 }
 
 #endif
-
-// to protect from redeclaration error
-#define HELPERS
