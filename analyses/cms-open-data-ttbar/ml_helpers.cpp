@@ -9,7 +9,8 @@
 #include <algorithm>
 #include <string>
 
-#include "ROOT/RVec.hxx"
+#include <TError.h>
+#include <ROOT/RVec.hxx>
 #include <Math/Vector4D.h>
 
 // copying jet_labels because we need to modify it
@@ -85,7 +86,7 @@ std::map<int, std::vector<ROOT::RVecI>> get_permutations_dict (size_t max_n_jets
 
 std::map<std::string, fastforest::FastForest> get_fastforests (const std::string& path_to_models) {
 
-    // path_to_models should end with "/"
+    R__ASSERT(path_to_models.back() == '/');
 
     std::size_t nfeatures=20;
     std::vector<std::string> feature_names(nfeatures);
