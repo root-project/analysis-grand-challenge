@@ -108,6 +108,7 @@ def load_cpp(fastforest_path, max_n_jets=6):
         # https://indico.fnal.gov/event/23628/contributions/240608/attachments/154873/201557/distributed_RDF_padulano_ROOT_workshop_2022.pdf
         """
         #ifndef AGC_MODELS
+        #define AGC_MODELS
 
         const std::map<std::string, fastforest::FastForest> fastforest_models = get_fastforests("models/");
         const fastforest::FastForest& feven = fastforest_models.at("even");
@@ -118,7 +119,6 @@ def load_cpp(fastforest_path, max_n_jets=6):
         std::map<int, std::vector<ROOT::RVecI>> permutations = get_permutations_dict(max_n_jets);
 
         #endif
-        #define AGC_MODELS
         """
         )
     )
