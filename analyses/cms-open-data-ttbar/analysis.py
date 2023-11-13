@@ -58,10 +58,11 @@ def parse_args() -> argparse.Namespace:
         help="Name of the file where analysis results will be stored. If it already exists, contents are overwritten.",
         default="histograms.root",
     )
-    p.add_argument("--inference",
-                   action=argparse.BooleanOptionalAction,
-                   help="""Produce machine learning histograms if enabled.
-                        Disabled by default."""
+    p.add_argument(
+        "--inference",
+        action=argparse.BooleanOptionalAction,
+        help="""Produce machine learning histograms if enabled.
+                        Disabled by default.""",
     )
     p.add_argument(
         "--scheduler",
@@ -355,16 +356,15 @@ def main() -> None:
         load_cpp()
         if args.inference:
             ml.load_cpp("./fastforest")
-            
 
         run_graphs = ROOT.RDF.RunGraphs
     else:
         # Setup for distributed RDataFrame
         client = create_dask_client(args.scheduler, args.ncores, args.hosts)
-        if args.inference: 
+        if args.inference:
             ROOT.RDF.Experimental.Distributed.initialize(load_cpp)
             if args.inference:
-                #TODO: make ml.load_cpp working on distributed
+                # TODO: make ml.load_cpp working on distributed
                 ROOT.RDF.Experimental.Distributed.initialize(ml.load_cpp, "./fastforest")
         else:
             ROOT.RDF.Experimental.Distributed.initialize(load_cpp)

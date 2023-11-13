@@ -87,8 +87,8 @@ def save_plots(results: list[AGCResult]):
     c.BuildLegend(0.65, 0.7, 0.9, 0.9)
     c.SaveAs("jet.png")
 
-def save_ml_plots(results: list[AGCResult]):
 
+def save_ml_plots(results: list[AGCResult]):
     width = 2160
     height = 2160
     c = ROOT.TCanvas("c", "c", width, height)
@@ -97,8 +97,7 @@ def save_ml_plots(results: list[AGCResult]):
         hlist = [r.histo for r in results if r.variation == "nominal" and r.region == feature]
         hs = ROOT.THStack("features", feature.title)
         for h in hlist:
-            hs.Add(h)       
-        hs.Draw("hist pfc plc")  
+            hs.Add(h)
+        hs.Draw("hist pfc plc")
         c.BuildLegend()
-        c.Print( "features.pdf" + (i==0) * "(" + ( i+1 == len(ml_features_config)) * ")" )
-        
+        c.Print("features.pdf" + (i == 0) * "(" + (i + 1 == len(ml_features_config)) * ")")
