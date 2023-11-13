@@ -70,7 +70,7 @@ std::map<int, std::vector<ROOT::RVecI>> get_permutations_dict (size_t max_n_jets
     
     std::map<int, std::vector<ROOT::RVecI> > permutations_dict; // number of jets to permutations of jets indexes.
     std::string base = "wwhl";
-    for (int N = 4; N <= max_n_jets; ++N) {
+    for (std::size_t N = 4; N <= max_n_jets; ++N) {
         std::string jet_labels = base + std::string(N-4, 'o'); 
         std::map<std::string, std::vector<int>> permutations = get_permutations (jet_labels);
         permutations_dict[N] = std::vector<ROOT::RVecI>{permutations["w1"], permutations["w2"], permutations["h"], permutations["l"]};
@@ -83,9 +83,9 @@ std::map<std::string, fastforest::FastForest> get_fastforests (const std::string
 
     // path_to_models should end with "/"
 
-    size_t nfeatures=20;
+    std::size_t nfeatures=20;
     std::vector<std::string> feature_names(nfeatures);
-    for (int i = 0; i < nfeatures; ++i) {
+    for (std::size_t i = 0; i < nfeatures; ++i) {
         feature_names[i] = "f"+std::to_string(i);
     }
 
@@ -201,11 +201,11 @@ ROOT::RVecF inference(const ROOT::RVec<ROOT::RVecD> &features, const fastforest:
     ROOT::RVecF res(npermutations);
     float input[nfeatures];
 
-    for (int i = 0; i < npermutations; ++i) {
-        for (int j = 0; j < nfeatures; ++j) {
+    for (std::size_t i = 0; i < npermutations; ++i) {
+        for (std::size_t j = 0; j < nfeatures; ++j) {
             input[j] = features.at(j).at(i);
         }
-        float score = forest(input, 0.0F);
+        float score = forest(input, 0.0f);
         res[i] = 1./(1.+std::exp(-score));
     }
 
