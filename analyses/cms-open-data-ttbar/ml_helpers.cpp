@@ -8,6 +8,7 @@
 #include <map>
 #include <algorithm>
 #include <string>
+#include <vector>
 
 #include <TError.h>
 #include <ROOT/RVec.hxx>
