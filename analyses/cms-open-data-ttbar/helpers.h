@@ -3,6 +3,7 @@
 
 #include <random>
 #include <string>
+#include <algorithm>
 
 #include "ROOT/RVec.hxx"
 #include "TH1D.h"
@@ -36,7 +37,8 @@ inline ROOT::RVecF btag_weight_variation(const ROOT::RVecF &jet_pt)
 {
    // weight variation depending on i-th jet pT (7.5% as default value, multiplied by i-th jet pT / 50 GeV)
    ROOT::RVecF res;
-   for (const float &pt : ROOT::VecOps::Take(jet_pt, 4))
+   res.reserve(std::min(4ul, jet_pt.size()));
+   for (float pt : Take(jet_pt, 4))
    {
       res.push_back(1 + .075 * pt / 50);
       res.push_back(1 - .075 * pt / 50);
