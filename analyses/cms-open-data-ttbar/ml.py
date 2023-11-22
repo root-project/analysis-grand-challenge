@@ -93,6 +93,7 @@ def load_cpp(fastforest_path, max_n_jets=6):
     lib = os.path.join(fastforest_path, "lib")  # path for libraries
     ROOT.gSystem.AddIncludePath(f"-I{include}")
     ROOT.gSystem.AddLinkedLibs(f"-L{lib} -lfastforest")
+    ROOT.gSystem.AddDynamicPath(f"{lib}")
     ROOT.gSystem.Load(f"{lib}/libfastforest.so.1")
     ROOT.gSystem.CompileMacro("ml_helpers.cpp", "kO")
 
