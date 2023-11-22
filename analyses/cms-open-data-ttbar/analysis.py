@@ -379,10 +379,10 @@ def main() -> None:
         ml_results += ml_hist_list
 
     # Select the right VariationsFor function depending on RDF or DistRDF
-    if type(df).__module__ == "DistRDF.Proxy":
-        variationsfor_func = ROOT.RDF.Experimental.Distributed.VariationsFor
-    else:
+    if args.scheduler == "mt":
         variationsfor_func = ROOT.RDF.Experimental.VariationsFor
+    else:
+        variationsfor_func = ROOT.RDF.Experimental.Distributed.VariationsFor
     for r in results + ml_results:
         if r.should_vary:
             r.histo = variationsfor_func(r.histo)
