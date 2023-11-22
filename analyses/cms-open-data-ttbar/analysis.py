@@ -354,13 +354,10 @@ def main() -> None:
     else:
         # Setup for distributed RDataFrame
         client = create_dask_client(args.scheduler, args.ncores, args.hosts)
+        ROOT.RDF.Experimental.Distributed.initialize(load_cpp)
         if args.inference:
-            ROOT.RDF.Experimental.Distributed.initialize(load_cpp)
-            if args.inference:
-                # TODO: make ml.load_cpp working on distributed
-                ROOT.RDF.Experimental.Distributed.initialize(ml.load_cpp, "./fastforest")
-        else:
-            ROOT.RDF.Experimental.Distributed.initialize(load_cpp)
+            # TODO: make ml.load_cpp working on distributed
+            ROOT.RDF.Experimental.Distributed.initialize(ml.load_cpp, "./fastforest")
         run_graphs = ROOT.RDF.Experimental.Distributed.RunGraphs
 
     # Book RDataFrame results
