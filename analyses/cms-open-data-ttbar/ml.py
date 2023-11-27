@@ -1,8 +1,10 @@
 import os
+import sys
 from dataclasses import dataclass
 from typing import Tuple
 
 import ROOT
+from distributed import get_worker
 
 # histogram bin lower limit to use for each ML input feature
 bin_low = [0, 0, 0, 0, 50, 50, 50, 50, 25, 25, 25, 25, 0, 0, 0, 0, -1, -1, -1, -1]
@@ -74,6 +76,24 @@ ml_features_config: list[MLHistoConf] = [
 ]
 
 
+def compile_macro_wrapper(library_path: str):
+    ROOT.gInterpreter.Declare(
+        """
+    #ifndef R__COMPILE_MACRO_WRAPPER
+    #define R__COMPILE_MACRO_WRAPPER
+    int CompileMacroWrapper(const std::string &library_path)
+    {
+        R__LOCKGUARD(gInterpreterMutex);
+        return gSystem->CompileMacro(library_path.c_str(), "kO");
+    }
+    #endif // R__COMPILE_MACRO_WRAPPER
+    """
+    )
+
+    if ROOT.CompileMacroWrapper(library_path) != 1:
+        raise RuntimeError("Failure in TSystem::CompileMacro!")
+
+
 def load_cpp(fastforest_path, max_n_jets=6):
     # the default value of max_n_jets is the same as in the refererence implementation
     # https://github.com/iris-hep/analysis-grand-challenge
@@ -91,17 +111,30 @@ def load_cpp(fastforest_path, max_n_jets=6):
 
     include = os.path.join(fastforest_path, "include")  # path for headers
     lib = os.path.join(fastforest_path, "lib")  # path for libraries
+    if not os.path.exists(include) or not os.path.exists(lib):
+        raise RuntimeError("Cannot find fastforest include/library paths.")
     ROOT.gSystem.AddIncludePath(f"-I{include}")
+    ROOT.gInterpreter.AddIncludePath(include)
     ROOT.gSystem.AddLinkedLibs(f"-L{lib} -lfastforest")
     ROOT.gSystem.AddDynamicPath(f"{lib}")
     ROOT.gSystem.Load(f"{lib}/libfastforest.so.1")
-    ROOT.gSystem.CompileMacro("ml_helpers.cpp", "kO")
+
+    try:
+        this_worker = get_worker()
+    except ValueError:
+        print("Not on a worker", file=sys.stderr)
+        return
+
+    library_source = "ml_helpers.cpp"
+    local_dir = this_worker.local_directory
+    library_path = os.path.join(local_dir, library_source)
+    compile_macro_wrapper(library_path)
 
     # Initialize FastForest models.
     # Our BDT models have 20 input features according to the AGC documentation
     # https://agc.readthedocs.io/en/latest/taskbackground.html#machine-learning-component
 
-    ROOT.gInterpreter.Declare(
+    res = ROOT.gInterpreter.Declare(
         # **Conditional derectives used to avoid redefinition error during distributed computing**
         # Note:
         # * moving all stuff in `Declare` to `ml_helpers.cpp` cancels the necessity of using `ifndef`
@@ -110,19 +143,22 @@ def load_cpp(fastforest_path, max_n_jets=6):
         """
         #ifndef AGC_MODELS
         #define AGC_MODELS
+        #include "fastforest.h"
 
-        const std::map<std::string, fastforest::FastForest> fastforest_models = get_fastforests("models/");
+        const std::map<std::string, fastforest::FastForest> fastforest_models = get_fastforests("{fastforest_path}/../models/");
         const fastforest::FastForest& feven = fastforest_models.at("even");
         const fastforest::FastForest& fodd = fastforest_models.at("odd");
-        """.__add__(
-            f"""
+        
         size_t max_n_jets = {max_n_jets};
         std::map<int, std::vector<ROOT::RVecI>> permutations = get_permutations_dict(max_n_jets);
 
         #endif
-        """
+        """.format(
+            fastforest_path=fastforest_path, max_n_jets=max_n_jets
         )
     )
+    if not res:
+        raise RuntimeError("There was a problem invoking Declare.")
 
 
 def define_features(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
