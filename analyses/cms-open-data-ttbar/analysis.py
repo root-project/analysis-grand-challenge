@@ -50,7 +50,7 @@ def parse_args() -> argparse.Namespace:
         help="""The original data is stored at 'https://xrootd-local.unl.edu:1094//store/user/AGC'.
                 If this option is passed, that prefix is replaced with the argument to this option when accessing
                 remote data. For example for the version of the input datasets stored on EOS use
-                `--remote-data-prefix='root://eoscms.cern.ch//eos/cms/store/test/agc'`.""",
+                `--remote-data-prefix='root://eospublic.cern.ch//eos/root-eos/AGC'`.""",
     )
     p.add_argument(
         "--output",
