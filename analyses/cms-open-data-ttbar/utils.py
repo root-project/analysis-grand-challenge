@@ -24,10 +24,6 @@ class AGCResult:
     region: str
     process: str
     variation: str
-    # We keep around the nominal RResultPtr even when `histo` is a RResultMap:
-    # in v6.28 we need a RResultPtr to pass to RDF.RunGraphs in order to trigger the event loop.
-    # In later versions RunGraphs accepts RResultMaps as well, and we don't need this data attribute.
-    nominal_histo: ROOT.RDF.RResultPtr[ROOT.TH1D]
     # Whether we should call VariationsFor over histo to produce variations
     should_vary: bool = False
 
@@ -122,9 +118,7 @@ def postprocess_results(results: list[AGCResult]):
         if hasattr(res.histo, "GetValue"):  # RResultPtr or distrdf equivalent
             # just extract the histogram from the RResultPtr
             h = res.histo.GetValue()
-            new_results.append(
-                AGCResult(h, res.region, res.process, res.variation, res.nominal_histo)
-            )
+            new_results.append(AGCResult(h, res.region, res.process, res.variation))
         else:
             resmap = res.histo
             assert hasattr(resmap, "GetKeys")  # RResultMap or distrdf equivalent
@@ -135,9 +129,7 @@ def postprocess_results(results: list[AGCResult]):
                 variation_name = str(variation).split(":")[-1]
                 new_name = h.GetName().replace("nominal", variation_name)
                 h.SetName(new_name)
-                new_results.append(
-                    AGCResult(h, res.region, res.process, variation_name, res.nominal_histo)
-                )
+                new_results.append(AGCResult(h, res.region, res.process, variation_name))
 
     return new_results
 
