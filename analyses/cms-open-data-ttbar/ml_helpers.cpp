@@ -1,7 +1,6 @@
 #ifndef ML_HELPERS
 #define ML_HELPERS
 
-#include "fastforest.h"
 #include "helpers.h"
 
 #include <cmath>
@@ -13,6 +12,7 @@
 #include <TError.h>
 #include <ROOT/RVec.hxx>
 #include <Math/Vector4D.h>
+#include <TMVA/RBDT.hxx>
 
 // copying jet_labels because we need to modify it
 std::map<std::string, std::vector<int>> get_permutations (std::string jet_labels) {
@@ -62,7 +62,7 @@ std::map<std::string, std::vector<int>> get_permutations (std::string jet_labels
             if (label == "w") label+=std::to_string(++count); // gets "w1" or "w2" labels
             permutations[label].push_back(idx); // stores indexes of given permutation
         }
-        count = 0; // needs to be reset after every itaration over labels
+        count = 0; // needs to be reset after every iteration over labels
     } while (std::next_permutation(jet_labels.begin(), jet_labels.end()));
 
 
@@ -83,26 +83,6 @@ std::map<int, std::vector<ROOT::RVecI>> get_permutations_dict (size_t max_n_jets
     }
     return permutations_dict;
 }
-
-
-std::map<std::string, fastforest::FastForest> get_fastforests (const std::string& path_to_models) {
-
-    R__ASSERT(path_to_models.back() == '/');
-
-    std::size_t nfeatures=20;
-    std::vector<std::string> feature_names(nfeatures);
-    for (std::size_t i = 0; i < nfeatures; ++i) {
-        feature_names[i] = "f"+std::to_string(i);
-    }
-
-    auto fodd = fastforest::load_txt(path_to_models+"odd.txt", feature_names);
-    auto feven = fastforest::load_txt(path_to_models+"even.txt", feature_names);
-    return {{"even",feven}, {"odd", fodd}};
-}
-
-
-
-
 
 ROOT::RVec<ROOT::RVecD> eval_features (
     const ROOT::RVec<ROOT::RVecI>& permut_indexes,
@@ -199,20 +179,18 @@ ROOT::RVec<ROOT::RVecD> eval_features (
 
 }
 
-
-ROOT::RVecF inference(const ROOT::RVec<ROOT::RVecD> &features, const fastforest::FastForest &forest) {
+ROOT::RVecF inference(const ROOT::RVec<ROOT::RVecD> &features, const TMVA::Experimental::RBDT &bdt) {
 
     size_t npermutations = features.at(0).size();
-    size_t nfeatures = features.size();
     ROOT::RVecF res(npermutations);
-    float input[nfeatures];
+    size_t nfeatures = features.size();
+    ROOT::RVecF input(nfeatures);
 
     for (std::size_t i = 0; i < npermutations; ++i) {
         for (std::size_t j = 0; j < nfeatures; ++j) {
             input[j] = features.at(j).at(i);
         }
-        float score = forest(input, 0.0f);
-        res[i] = 1./(1.+std::exp(-score));
+        res[i] = bdt.Compute(input)[0];
     }
 
     return res;
