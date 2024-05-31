@@ -1,8 +1,5 @@
-import os
 from dataclasses import dataclass
 from typing import Tuple
-
-from xgboost import XGBClassifier
 
 import ROOT
 
@@ -106,13 +103,6 @@ def load_cpp(max_n_jets=6):
         """
         )
     )
-def models_to_rootfiles():
-    feven = XGBClassifier()
-    feven.load_model(f"models/model_even.json")
-    fodd = XGBClassifier()
-    fodd.load_model(f"models/model_odd.json")  
-    ROOT.TMVA.Experimental.SaveXGBoost(feven, "feven", "bdt_even.root", num_inputs=20)
-    ROOT.TMVA.Experimental.SaveXGBoost(fodd, "fodd", "bdt_odd.root", num_inputs=20)
 
 def define_features(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
     return df.Define(
@@ -144,8 +134,6 @@ def predict_proba(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
     # in inference, odd model applied to even events, while even model to odd events
     # read more about inference in dedicated part of AGC documentation:
     # https://agc.readthedocs.io/en/latest/taskbackground.html#machine-learning-component
-    
-    models_to_rootfiles()
 
     return df.Define(
         "proba",
