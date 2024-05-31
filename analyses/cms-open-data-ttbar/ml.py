@@ -2,6 +2,8 @@ import os
 from dataclasses import dataclass
 from typing import Tuple
 
+from xgboost import XGBClassifier
+
 import ROOT
 
 # histogram bin lower limit to use for each ML input feature
@@ -73,27 +75,9 @@ ml_features_config: list[MLHistoConf] = [
     for i in range(len(feature_names))
 ]
 
-
-def load_cpp(fastforest_path, max_n_jets=6):
-    # the default value of max_n_jets is the same as in the refererence implementation
+def load_cpp(max_n_jets=6):
+    # the default value of max_n_jets is the same as in the reference implementation
     # https://github.com/iris-hep/analysis-grand-challenge
-
-    # For compiling ml_helpers.cpp, it is necessary to set paths for FastForest (https://github.com/guitargeek/XGBoost-FastForest) libraries and headers.
-
-    # The installed library is supposed to look like this:
-    # fastforest_path/
-    # ├── include
-    # │   └── fastforest.h
-    # └── lib
-    #     ├── libfastforest.so -> libfastforest.so.1
-    #     ├── libfastforest.so.0.2
-    #     └── libfastforest.so.1 -> libfastforest.so.0.2
-
-    include = os.path.join(fastforest_path, "include")  # path for headers
-    lib = os.path.join(fastforest_path, "lib")  # path for libraries
-    ROOT.gSystem.AddIncludePath(f"-I{include}")
-    ROOT.gSystem.AddLinkedLibs(f"-L{lib} -lfastforest")
-    ROOT.gSystem.Load(f"{lib}/libfastforest.so.1")
     ROOT.gSystem.CompileMacro("ml_helpers.cpp", "kO")
 
     # Initialize FastForest models.
@@ -101,7 +85,7 @@ def load_cpp(fastforest_path, max_n_jets=6):
     # https://agc.readthedocs.io/en/latest/taskbackground.html#machine-learning-component
 
     ROOT.gInterpreter.Declare(
-        # **Conditional derectives used to avoid redefinition error during distributed computing**
+        # **Conditional directives used to avoid redefinition error during distributed computing**
         # Note:
         # * moving all stuff in `Declare` to `ml_helpers.cpp` cancels the necessity of using `ifndef`
         # * coming soon feature is `gInterpreter.Declare` with automatic header guards
@@ -109,10 +93,10 @@ def load_cpp(fastforest_path, max_n_jets=6):
         """
         #ifndef AGC_MODELS
         #define AGC_MODELS
+        
+        TMVA::Experimental::RBDT feven("feven", "bdt_even.root");
+        TMVA::Experimental::RBDT fodd("fodd", "bdt_odd.root");
 
-        const std::map<std::string, fastforest::FastForest> fastforest_models = get_fastforests("models/");
-        const fastforest::FastForest& feven = fastforest_models.at("even");
-        const fastforest::FastForest& fodd = fastforest_models.at("odd");
         """.__add__(
             f"""
         size_t max_n_jets = {max_n_jets};
@@ -122,7 +106,13 @@ def load_cpp(fastforest_path, max_n_jets=6):
         """
         )
     )
-
+def models_to_rootfiles():
+    feven = XGBClassifier()
+    feven.load_model(f"models/model_even.json")
+    fodd = XGBClassifier()
+    fodd.load_model(f"models/model_odd.json")  
+    ROOT.TMVA.Experimental.SaveXGBoost(feven, "feven", "bdt_even.root", num_inputs=20)
+    ROOT.TMVA.Experimental.SaveXGBoost(fodd, "fodd", "bdt_odd.root", num_inputs=20)
 
 def define_features(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
     return df.Define(
@@ -148,23 +138,23 @@ def define_features(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
         """,
     )
 
-
 def predict_proba(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
     """get probability scores for every permutation in event"""
 
     # in inference, odd model applied to even events, while even model to odd events
     # read more about inference in dedicated part of AGC documentation:
     # https://agc.readthedocs.io/en/latest/taskbackground.html#machine-learning-component
+    
+    models_to_rootfiles()
 
     return df.Define(
         "proba",
         """
         bool is_even = (event % 2 == 0);
-        const auto& forest = (is_even) ? fodd : feven;
-        return inference(features, forest);
+        const auto& model = (is_even) ? fodd : feven;
+        return inference(features, model);
         """,
     )
-
 
 def infer_output_ml_features(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
     """
