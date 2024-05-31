@@ -1,18 +1,13 @@
 import argparse
-import os
+import multiprocessing
 from pathlib import Path
 from time import time
 from typing import Optional, Tuple
 
+from distributed import Client, get_worker, LocalCluster, SSHCluster
 import ml
-import ROOT
-from distributed import Client, LocalCluster, SSHCluster, get_worker
-from ml import (
-    define_features,
-    infer_output_ml_features,
-    ml_features_config,
-)
 from plotting import save_ml_plots, save_plots
+import ROOT
 from utils import (
     AGCInput,
     AGCResult,
@@ -79,7 +74,7 @@ def parse_args() -> argparse.Namespace:
         help=(
             "Number of cores to use. In case of distributed execution this is the amount of cores per node."
         ),
-        default=len(os.sched_getaffinity(0)),
+        default = multiprocessing.cpu_count(),
         type=int,
     )
     p.add_argument(
@@ -216,7 +211,7 @@ def book_histos(
             )
 
     # Event selection - the core part of the algorithm applied for both regions
-    # Selecting events containing at least one lepton and four jets with pT > 25 GeV
+    # Selecting events containing at least one lepton and four jets with pT > 30 GeV
     # Applying requirement at least one of them must be b-tagged jet (see details in the specification)
     df = (
         df.Define(
@@ -283,11 +278,11 @@ def book_histos(
     if not inference:
         return (results, ml_results)
 
-    df4j2b = define_features(df4j2b)
-    df4j2b = infer_output_ml_features(df4j2b)
+    df4j2b = ml.define_features(df4j2b)
+    df4j2b = ml.infer_output_ml_features(df4j2b)
 
     # Book histograms and, if needed, their systematic variations
-    for i, feature in enumerate(ml_features_config):
+    for i, feature in enumerate(ml.ml_features_config):
         histo_model = ROOT.RDF.TH1DModel(
             name=f"{feature.name}_{process}_{variation}",
             title=feature.title,
@@ -348,7 +343,7 @@ def main() -> None:
         client = None
         load_cpp()
         if args.inference:
-            ml.load_cpp("./fastforest")
+            ml.load_cpp()
 
         run_graphs = ROOT.RDF.RunGraphs
     else:
@@ -357,8 +352,8 @@ def main() -> None:
         if args.inference:
             ROOT.RDF.Experimental.Distributed.initialize(load_cpp)
             if args.inference:
-                # TODO: make ml.load_cpp working on distributed
-                ROOT.RDF.Experimental.Distributed.initialize(ml.load_cpp, "./fastforest")
+                ROOT.RDF.Experimental.Distributed.initialize(ml.load_cpp)
+
         else:
             ROOT.RDF.Experimental.Distributed.initialize(load_cpp)
         run_graphs = ROOT.RDF.Experimental.Distributed.RunGraphs
@@ -379,7 +374,7 @@ def main() -> None:
         ml_results += ml_hist_list
 
     # Select the right VariationsFor function depending on RDF or DistRDF
-    if "DistRDF" in type(df).__module__:
+    if type(df).__module__ == "DistRDF.DataFrame":    
         variationsfor_func = ROOT.RDF.Experimental.Distributed.VariationsFor
     else:
         variationsfor_func = ROOT.RDF.Experimental.VariationsFor
