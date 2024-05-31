@@ -79,7 +79,7 @@ def parse_args() -> argparse.Namespace:
         help=(
             "Number of cores to use. In case of distributed execution this is the amount of cores per node."
         ),
-        default=len(os.sched_getaffinity(0)),
+        default=1,
         type=int,
     )
     p.add_argument(
@@ -216,7 +216,7 @@ def book_histos(
             )
 
     # Event selection - the core part of the algorithm applied for both regions
-    # Selecting events containing at least one lepton and four jets with pT > 25 GeV
+    # Selecting events containing at least one lepton and four jets with pT > 30 GeV
     # Applying requirement at least one of them must be b-tagged jet (see details in the specification)
     df = (
         df.Define(
@@ -348,7 +348,7 @@ def main() -> None:
         client = None
         load_cpp()
         if args.inference:
-            ml.load_cpp("./fastforest")
+            ml.load_cpp()
 
         run_graphs = ROOT.RDF.RunGraphs
     else:
@@ -358,7 +358,9 @@ def main() -> None:
             ROOT.RDF.Experimental.Distributed.initialize(load_cpp)
             if args.inference:
                 # TODO: make ml.load_cpp working on distributed
-                ROOT.RDF.Experimental.Distributed.initialize(ml.load_cpp, "./fastforest")
+                # ROOT.RDF.Experimental.Distributed.initialize(ml.load_cpp, "./fastforest")
+                ROOT.RDF.Experimental.Distributed.initialize(ml.load_cpp)
+
         else:
             ROOT.RDF.Experimental.Distributed.initialize(load_cpp)
         run_graphs = ROOT.RDF.Experimental.Distributed.RunGraphs
@@ -379,7 +381,7 @@ def main() -> None:
         ml_results += ml_hist_list
 
     # Select the right VariationsFor function depending on RDF or DistRDF
-    if "DistRDF" in type(df).__module__:
+    if type(df).__module__ == "DistRDF.DataFrame":    
         variationsfor_func = ROOT.RDF.Experimental.Distributed.VariationsFor
     else:
         variationsfor_func = ROOT.RDF.Experimental.VariationsFor
