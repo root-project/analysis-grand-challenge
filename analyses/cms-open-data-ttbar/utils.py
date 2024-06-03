@@ -94,13 +94,14 @@ def retrieve_inputs(
 
             file_paths = [f["path"] for f in sample_info]
             prefix = "https://xrootd-local.unl.edu:1094//store/user/AGC"
-            assert all(f.startswith(prefix) for f in file_paths)
 
             if remote_data_prefix is not None:
+                assert all(f.startswith(prefix) for f in file_paths)
                 old_prefix, prefix = prefix, remote_data_prefix
                 file_paths = [f.replace(old_prefix, prefix) for f in file_paths]
 
             if data_cache is not None:
+                assert all(f.startswith(prefix) for f in file_paths)
                 _cache_files(file_paths, data_cache, prefix)
                 old_prefix, prefix = prefix, str(Path(data_cache).absolute())
                 file_paths = [f.replace(old_prefix, prefix) for f in file_paths]
