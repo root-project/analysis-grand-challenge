@@ -91,8 +91,8 @@ def load_cpp(max_n_jets=6):
         #ifndef AGC_MODELS
         #define AGC_MODELS
         
-        TMVA::Experimental::RBDT feven("feven", "bdt_even.root");
-        TMVA::Experimental::RBDT fodd("fodd", "bdt_odd.root");
+        TMVA::Experimental::RBDT feven("feven", "models/bdt_even.root");
+        TMVA::Experimental::RBDT fodd("fodd", "models/bdt_odd.root");
 
         """.__add__(
             f"""
