@@ -339,7 +339,7 @@ def main() -> None:
     if args.verbose:
         # Set higher RDF verbosity for the rest of the program.
         # To only change the verbosity in a given scope, use ROOT.Experimental.RLogScopedVerbosity.
-        ROOT.Detail.RDF.RDFLogChannel.SetVerbosity(ROOT.Experimental.ELogLevel.kInfo)
+        ROOT.Detail.RDF.RDFLogChannel().SetVerbosity(ROOT.Experimental.ELogLevel.kInfo)
 
     if args.scheduler == "mt":
         # Setup for local, multi-thread RDataFrame
