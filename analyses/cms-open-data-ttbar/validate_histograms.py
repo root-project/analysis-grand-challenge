@@ -1,7 +1,9 @@
-# This script is original of the IRIS-HEP analysis-grand-challenge repository 
+# This script is originally from the IRIS-HEP analysis-grand-challenge repository 
 # and has been adapted to serve the purpose of the RDF-based analysis.
+# The original script can be found here:
+# https://github.com/iris-hep/analysis-grand-challenge/blob/main/analyses/cms-open-data-ttbar/validate_histograms.py
 
-# Compare the content of histograms produced by ttbar_analysis_pipeline with a reference file.
+# Compare the content of histograms produced by analysis with a reference file.
 # A reference file for N_FILES_MAX_PER_SAMPLE=1 is available in directory `reference/`.
 
 from __future__ import annotations
