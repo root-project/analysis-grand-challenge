@@ -113,26 +113,6 @@ def create_dask_client(scheduler: str, ncores: int, hosts: str) -> Client:
         f"Unexpected scheduling mode '{scheduler}'. Valid modes are ['dask-local', 'dask-ssh']."
     )
 
-
-def make_rdf(
-    files: list[str], client: Optional[Client], npartitions: Optional[int]
-) -> ROOT.RDataFrame:
-    """Construct and return a dataframe or, if a dask client is present, a distributed dataframe."""
-    if client is not None:
-        d = ROOT.RDF.Experimental.Distributed.Dask.RDataFrame(
-            "Events", files, daskclient=client, npartitions=npartitions
-        )
-        d._headnode.backend.distribute_unique_paths(
-            [
-                "helpers.h",
-                "ml_helpers.cpp",
-            ]
-        )
-        return d
-
-    return ROOT.RDataFrame("Events", files)
-
-
 def define_trijet_mass(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
     """Add the trijet_mass observable to the dataframe after applying the appropriate selections."""
 
@@ -322,6 +302,88 @@ def load_cpp():
     ROOT.gSystem.CompileMacro(str(cpp_source), "kO")
 
 
+def run_mt(
+        program_start: float,
+        args: argparse.Namespace,
+        inputs: list[AGCInput],
+        results: list[AGCResult],
+        ml_results: list[AGCResult]) -> None:
+    ROOT.EnableImplicitMT(args.ncores)
+    print(f"Number of threads: {ROOT.GetThreadPoolSize()}")
+    load_cpp()
+    if args.inference:
+      ml.load_cpp()
+
+    for input in inputs:
+        df = ROOT.RDataFrame("Events", input.paths)
+        hist_list, ml_hist_list = book_histos(
+            df, input.process, input.variation, input.nevents, inference=args.inference
+        )
+        results += hist_list
+        ml_results += ml_hist_list
+
+    for r in results + ml_results:
+        if r.should_vary:
+            r.histo = ROOT.RDF.Experimental.VariationsFor(r.histo)
+
+    print(
+        f"Building the computation graphs took {time() - program_start:.2f} seconds")
+
+    # Run the event loops for all processes and variations here
+    run_graphs_start = time()
+    ROOT.RDF.RunGraphs([r.nominal_histo for r in results + ml_results])
+
+    print(
+        f"Executing the computation graphs took {time() - run_graphs_start:.2f} seconds")
+
+
+def run_distributed(
+        program_start: float,
+        args: argparse.Namespace,
+        inputs: list[AGCInput],
+        results: list[AGCResult],
+        ml_results: list[AGCResult]) -> None:
+    if args.inference:
+        ROOT.RDF.Experimental.Distributed.initialize(load_cpp)
+        if args.inference:
+            ROOT.RDF.Experimental.Distributed.initialize(ml.load_cpp)
+    else:
+        ROOT.RDF.Experimental.Distributed.initialize(load_cpp)
+
+    with create_dask_client(args.scheduler, args.ncores, args.hosts) as client:
+        for input in inputs:
+            df = ROOT.RDF.Experimental.Distributed.Dask.RDataFrame(
+                "Events", input.paths, daskclient=client, npartitions=args.npartitions
+            )
+            df._headnode.backend.distribute_unique_paths(
+                [
+                    "helpers.h",
+                    "ml_helpers.cpp",
+                ]
+            )
+            hist_list, ml_hist_list = book_histos(
+                df, input.process, input.variation, input.nevents, inference=args.inference
+            )
+            results += hist_list
+            ml_results += ml_hist_list
+
+        for r in results + ml_results:
+            if r.should_vary:
+                r.histo = ROOT.RDF.Experimental.Distributed.VariationsFor(
+                    r.histo)
+
+        print(
+            f"Building the computation graphs took {time() - program_start:.2f} seconds")
+
+        # Run the event loops for all processes and variations here
+        run_graphs_start = time()
+        ROOT.RDF.Experimental.Distributed.RunGraphs(
+            [r.nominal_histo for r in results + ml_results])
+
+        print(
+            f"Executing the computation graphs took {time() - run_graphs_start:.2f} seconds")
+
+
 def main() -> None:
     program_start = time()
     args = parse_args()
@@ -336,61 +398,16 @@ def main() -> None:
         # To only change the verbosity in a given scope, use ROOT.Experimental.RLogScopedVerbosity.
         ROOT.Detail.RDF.RDFLogChannel().SetVerbosity(ROOT.Experimental.ELogLevel.kInfo)
 
-    if args.scheduler == "mt":
-        # Setup for local, multi-thread RDataFrame
-        ROOT.EnableImplicitMT(args.ncores)
-        print(f"Number of threads: {ROOT.GetThreadPoolSize()}")
-        client = None
-        load_cpp()
-        if args.inference:
-            ml.load_cpp()
-
-        run_graphs = ROOT.RDF.RunGraphs
-    else:
-        # Setup for distributed RDataFrame
-        client = create_dask_client(args.scheduler, args.ncores, args.hosts)
-        if args.inference:
-            ROOT.RDF.Experimental.Distributed.initialize(load_cpp)
-            if args.inference:
-                ROOT.RDF.Experimental.Distributed.initialize(ml.load_cpp)
-
-        else:
-            ROOT.RDF.Experimental.Distributed.initialize(load_cpp)
-        run_graphs = ROOT.RDF.Experimental.Distributed.RunGraphs
-
-    # Book RDataFrame results
     inputs: list[AGCInput] = retrieve_inputs(
         args.n_max_files_per_sample, args.remote_data_prefix, args.data_cache
     )
     results: list[AGCResult] = []
     ml_results: list[AGCResult] = []
 
-    for input in inputs:
-        df = make_rdf(input.paths, client, args.npartitions)
-        hist_list, ml_hist_list = book_histos(
-            df, input.process, input.variation, input.nevents, inference=args.inference
-        )
-        results += hist_list
-        ml_results += ml_hist_list
-
-    # Select the right VariationsFor function depending on RDF or DistRDF
-    if type(df).__module__ == "DistRDF.DataFrame":    
-        variationsfor_func = ROOT.RDF.Experimental.Distributed.VariationsFor
+    if args.scheduler == "mt":
+        run_mt(program_start, args, inputs, results, ml_results)
     else:
-        variationsfor_func = ROOT.RDF.Experimental.VariationsFor
-    for r in results + ml_results:
-        if r.should_vary:
-            r.histo = variationsfor_func(r.histo)
-
-    print(f"Building the computation graphs took {time() - program_start:.2f} seconds")
-
-    # Run the event loops for all processes and variations here
-    run_graphs_start = time()
-    run_graphs([r.nominal_histo for r in results + ml_results])
-
-    print(f"Executing the computation graphs took {time() - run_graphs_start:.2f} seconds")
-    if client is not None:
-        client.close()
+        run_distributed(program_start, args, inputs, results, ml_results)
 
     results = postprocess_results(results)
     save_plots(results)
