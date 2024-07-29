@@ -2,7 +2,7 @@ import argparse
 import multiprocessing
 from pathlib import Path
 from time import time
-from typing import Optional, Tuple
+from typing import Tuple
 
 from distributed import Client, get_worker, LocalCluster, SSHCluster
 import ml
@@ -299,7 +299,7 @@ def load_cpp():
         # must be local execution
         cpp_source = "helpers.h"
 
-    ROOT.gSystem.CompileMacro(str(cpp_source), "kO")
+    ROOT.gInterpreter.Declare(f"#include \"{str(cpp_source)}\"")
 
 
 def run_mt(
