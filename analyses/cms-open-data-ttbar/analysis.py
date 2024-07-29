@@ -78,7 +78,7 @@ def parse_args() -> argparse.Namespace:
         help=(
             "Number of cores to use. In case of distributed execution this is the amount of cores per node."
         ),
-        default = multiprocessing.cpu_count(),
+        default=multiprocessing.cpu_count(),
         type=int,
     )
     p.add_argument(
@@ -119,6 +119,7 @@ def create_dask_client(scheduler: str, ncores: int, hosts: str, scheduler_addres
     raise ValueError(
         f"Unexpected scheduling mode '{scheduler}'. Valid modes are ['dask-local', 'dask-ssh', 'dask-remote']."
     )
+
 
 def define_trijet_mass(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
     """Add the trijet_mass observable to the dataframe after applying the appropriate selections."""
@@ -255,9 +256,17 @@ def book_histos(
         nominal_histo = df.Histo1D(histo_model, observable, "Weights")
 
         if variation == "nominal":
-            results.append(AGCResult(nominal_histo, region, process, variation, nominal_histo, should_vary=True))
+            results.append(
+                AGCResult(
+                    nominal_histo, region, process, variation, nominal_histo, should_vary=True
+                )
+            )
         else:
-            results.append(AGCResult(nominal_histo, region, process, variation, nominal_histo, should_vary=False))
+            results.append(
+                AGCResult(
+                    nominal_histo, region, process, variation, nominal_histo, should_vary=False
+                )
+            )
         print(f"Booked histogram {histo_model.fName}")
 
     ml_results: list[AGCResult] = []
@@ -282,11 +291,20 @@ def book_histos(
 
         if variation == "nominal":
             ml_results.append(
-                AGCResult(nominal_histo, feature.name, process, variation, nominal_histo, should_vary=True)
+                AGCResult(
+                    nominal_histo, feature.name, process, variation, nominal_histo, should_vary=True
+                )
             )
         else:
             ml_results.append(
-                AGCResult(nominal_histo, feature.name, process, variation, nominal_histo, should_vary=False)
+                AGCResult(
+                    nominal_histo,
+                    feature.name,
+                    process,
+                    variation,
+                    nominal_histo,
+                    should_vary=False,
+                )
             )
         print(f"Booked histogram {histo_model.fName}")
 
@@ -306,20 +324,21 @@ def load_cpp():
         # must be local execution
         cpp_source = "helpers.h"
 
-    ROOT.gInterpreter.Declare(f"#include \"{str(cpp_source)}\"")
+    ROOT.gInterpreter.Declare(f'#include "{str(cpp_source)}"')
 
 
 def run_mt(
-        program_start: float,
-        args: argparse.Namespace,
-        inputs: list[AGCInput],
-        results: list[AGCResult],
-        ml_results: list[AGCResult]) -> None:
+    program_start: float,
+    args: argparse.Namespace,
+    inputs: list[AGCInput],
+    results: list[AGCResult],
+    ml_results: list[AGCResult],
+) -> None:
     ROOT.EnableImplicitMT(args.ncores)
     print(f"Number of threads: {ROOT.GetThreadPoolSize()}")
     load_cpp()
     if args.inference:
-      ml.load_cpp()
+        ml.load_cpp()
 
     for input in inputs:
         df = ROOT.RDataFrame("Events", input.paths)
@@ -333,23 +352,22 @@ def run_mt(
         if r.should_vary:
             r.histo = ROOT.RDF.Experimental.VariationsFor(r.histo)
 
-    print(
-        f"Building the computation graphs took {time() - program_start:.2f} seconds")
+    print(f"Building the computation graphs took {time() - program_start:.2f} seconds")
 
     # Run the event loops for all processes and variations here
     run_graphs_start = time()
     ROOT.RDF.RunGraphs([r.nominal_histo for r in results + ml_results])
 
-    print(
-        f"Executing the computation graphs took {time() - run_graphs_start:.2f} seconds")
+    print(f"Executing the computation graphs took {time() - run_graphs_start:.2f} seconds")
 
 
 def run_distributed(
-        program_start: float,
-        args: argparse.Namespace,
-        inputs: list[AGCInput],
-        results: list[AGCResult],
-        ml_results: list[AGCResult]) -> None:
+    program_start: float,
+    args: argparse.Namespace,
+    inputs: list[AGCInput],
+    results: list[AGCResult],
+    ml_results: list[AGCResult],
+) -> None:
     if args.inference:
         ROOT.RDF.Experimental.Distributed.initialize(load_cpp)
         if args.inference:
@@ -377,19 +395,15 @@ def run_distributed(
 
         for r in results + ml_results:
             if r.should_vary:
-                r.histo = ROOT.RDF.Experimental.Distributed.VariationsFor(
-                    r.histo)
+                r.histo = ROOT.RDF.Experimental.Distributed.VariationsFor(r.histo)
 
-        print(
-            f"Building the computation graphs took {time() - program_start:.2f} seconds")
+        print(f"Building the computation graphs took {time() - program_start:.2f} seconds")
 
         # Run the event loops for all processes and variations here
         run_graphs_start = time()
-        ROOT.RDF.Experimental.Distributed.RunGraphs(
-            [r.nominal_histo for r in results + ml_results])
+        ROOT.RDF.Experimental.Distributed.RunGraphs([r.nominal_histo for r in results + ml_results])
 
-        print(
-            f"Executing the computation graphs took {time() - run_graphs_start:.2f} seconds")
+        print(f"Executing the computation graphs took {time() - run_graphs_start:.2f} seconds")
 
 
 def main() -> None:
@@ -416,9 +430,13 @@ def main() -> None:
         run_mt(program_start, args, inputs, results, ml_results)
     else:
         if args.scheduler == "dask-remote" and not args.scheduler_address:
-            raise ValueError("'dask-remote' option chosen but no address provided for the scheduler. Provide it with `--scheduler-address`.")
+            raise ValueError(
+                "'dask-remote' option chosen but no address provided for the scheduler. Provide it with `--scheduler-address`."
+            )
         if args.scheduler_address and args.scheduler != "dask-remote":
-            raise ValueError(f"An address of a Dask scheduler was provided but the chosen scheduler is '{args.scheduler}'. The 'dask-remote' scheduler must be chosen if an address is provided.")
+            raise ValueError(
+                f"An address of a Dask scheduler was provided but the chosen scheduler is '{args.scheduler}'. The 'dask-remote' scheduler must be chosen if an address is provided."
+            )
         run_distributed(program_start, args, inputs, results, ml_results)
 
     results = postprocess_results(results)
