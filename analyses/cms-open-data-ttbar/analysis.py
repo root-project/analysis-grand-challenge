@@ -66,7 +66,11 @@ def parse_args() -> argparse.Namespace:
                 The default is `mt`, i.e. multi-thread execution.
                 If dask-ssh, a list of worker node hostnames to connect to should be provided via the --nodes option.""",
         default="mt",
-        choices=["mt", "dask-local", "dask-ssh"],
+        choices=["mt", "dask-local", "dask-ssh", "dask-remote"],
+    )
+    p.add_argument(
+        "--scheduler-address",
+        help="Full address of the Dask scheduler, passed as argument to the distributed.Client object. If this argument is provided, the 'dask-remote' scheduler must be chosen, and it is a required argument in such case.",
     )
     p.add_argument(
         "--ncores",
@@ -91,7 +95,7 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-def create_dask_client(scheduler: str, ncores: int, hosts: str) -> Client:
+def create_dask_client(scheduler: str, ncores: int, hosts: str, scheduler_address: str) -> Client:
     """Create a Dask distributed client."""
     if scheduler == "dask-local":
         lc = LocalCluster(n_workers=ncores, threads_per_worker=1, processes=True)
@@ -109,8 +113,11 @@ def create_dask_client(scheduler: str, ncores: int, hosts: str) -> Client:
         )
         return Client(sshc)
 
+    if scheduler == "dask-remote":
+        return Client(scheduler_address)
+
     raise ValueError(
-        f"Unexpected scheduling mode '{scheduler}'. Valid modes are ['dask-local', 'dask-ssh']."
+        f"Unexpected scheduling mode '{scheduler}'. Valid modes are ['dask-local', 'dask-ssh', 'dask-remote']."
     )
 
 def define_trijet_mass(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
@@ -350,7 +357,8 @@ def run_distributed(
     else:
         ROOT.RDF.Experimental.Distributed.initialize(load_cpp)
 
-    with create_dask_client(args.scheduler, args.ncores, args.hosts) as client:
+    scheduler_address = args.scheduler_address if args.scheduler_address else ""
+    with create_dask_client(args.scheduler, args.ncores, args.hosts, scheduler_address) as client:
         for input in inputs:
             df = ROOT.RDF.Experimental.Distributed.Dask.RDataFrame(
                 "Events", input.paths, daskclient=client, npartitions=args.npartitions
@@ -407,6 +415,10 @@ def main() -> None:
     if args.scheduler == "mt":
         run_mt(program_start, args, inputs, results, ml_results)
     else:
+        if args.scheduler == "dask-remote" and not args.scheduler_address:
+            raise ValueError("'dask-remote' option chosen but no address provided for the scheduler. Provide it with `--scheduler-address`.")
+        if args.scheduler_address and args.scheduler != "dask-remote":
+            raise ValueError(f"An address of a Dask scheduler was provided but the chosen scheduler is '{args.scheduler}'. The 'dask-remote' scheduler must be chosen if an address is provided.")
         run_distributed(program_start, args, inputs, results, ml_results)
 
     results = postprocess_results(results)
