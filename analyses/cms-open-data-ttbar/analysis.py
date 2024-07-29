@@ -387,7 +387,10 @@ def run_distributed(
             df._headnode.backend.distribute_unique_paths(
                 [
                     "helpers.h",
-                    "ml_helpers.cpp",
+                    "ml_helpers.h",
+                    "ml.py",
+                    "models/bdt_even.root",
+                    "models/bdt_odd.root",
                 ]
             )
             hist_list, ml_hist_list = book_histos(

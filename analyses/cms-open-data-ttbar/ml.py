@@ -1,7 +1,10 @@
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Tuple
 
 import ROOT
+
+from distributed import get_worker
 
 # histogram bin lower limit to use for each ML input feature
 bin_low = [0, 0, 0, 0, 50, 50, 50, 50, 25, 25, 25, 25, 0, 0, 0, 0, -1, -1, -1, -1]
@@ -75,34 +78,34 @@ ml_features_config: list[MLHistoConf] = [
 def load_cpp(max_n_jets=6):
     # the default value of max_n_jets is the same as in the reference implementation
     # https://github.com/iris-hep/analysis-grand-challenge
-    ROOT.gSystem.CompileMacro("ml_helpers.cpp", "kO")
+    try:
+        # when using distributed RDataFrame the header is copied to the local_directory
+        # of every worker (via `distribute_unique_paths`)
+        localdir = get_worker().local_directory
+        cpp_source = Path(localdir) / "ml_helpers.h"
+        model_even_path = Path(localdir) / "bdt_even.root"
+        model_odd_path = Path(localdir) / "bdt_odd.root"
+    except ValueError:
+        # must be local execution
+        cpp_source = "ml_helpers.h"
+        model_even_path = "models/bdt_even.root"
+        model_odd_path = "models/bdt_odd.root"
 
+    ROOT.gInterpreter.Declare(f"#include \"{cpp_source}\"")
     # Initialize FastForest models.
     # Our BDT models have 20 input features according to the AGC documentation
     # https://agc.readthedocs.io/en/latest/taskbackground.html#machine-learning-component
 
-    ROOT.gInterpreter.Declare(
-        # **Conditional directives used to avoid redefinition error during distributed computing**
-        # Note:
-        # * moving all stuff in `Declare` to `ml_helpers.cpp` cancels the necessity of using `ifndef`
-        # * coming soon feature is `gInterpreter.Declare` with automatic header guards
-        # https://indico.fnal.gov/event/23628/contributions/240608/attachments/154873/201557/distributed_RDF_padulano_ROOT_workshop_2022.pdf
-        """
+    ROOT.gInterpreter.ProcessLine(f"""
         #ifndef AGC_MODELS
         #define AGC_MODELS
-        
-        TMVA::Experimental::RBDT feven("feven", "models/bdt_even.root");
-        TMVA::Experimental::RBDT fodd("fodd", "models/bdt_odd.root");
-
-        """.__add__(
-            f"""
-        size_t max_n_jets = {max_n_jets};
-        std::map<int, std::vector<ROOT::RVecI>> permutations = get_permutations_dict(max_n_jets);
-
+        const static TMVA::Experimental::RBDT model_even{{"feven", "{model_even_path}"}};
+        const static TMVA::Experimental::RBDT model_odd{{"fodd", "{model_odd_path}"}};
+        const static std::size_t max_n_jets = {max_n_jets};
+        const static auto permutations = get_permutations_dict(max_n_jets);
         #endif
         """
         )
-    )
 
 def define_features(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
     return df.Define(
@@ -139,7 +142,7 @@ def predict_proba(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
         "proba",
         """
         bool is_even = (event % 2 == 0);
-        const auto& model = (is_even) ? fodd : feven;
+        const auto& model = (is_even) ? model_odd : model_even;
         return inference(features, model);
         """,
     )
