@@ -369,9 +369,12 @@ def run_distributed(
     ml_results: list[AGCResult],
 ) -> None:
     if args.inference:
-        ROOT.RDF.Experimental.Distributed.initialize(load_cpp)
-        if args.inference:
-            ROOT.RDF.Experimental.Distributed.initialize(ml.load_cpp)
+
+        def ml_init():
+            load_cpp()
+            ml.load_cpp()
+
+        ROOT.RDF.Experimental.Distributed.initialize(ml_init)
     else:
         ROOT.RDF.Experimental.Distributed.initialize(load_cpp)
 
