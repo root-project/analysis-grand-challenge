@@ -394,7 +394,9 @@ class DrawModel:
             pad2_bottom.Draw()
             pad1_upper.cd()
 
-            prefit_yields, prefit_unc, prefit_sample_values = self.get_yields(obs_var, observables, channel_pdf, result, prefit = True) # get prefit uncert for histogram
+            # prefit yields can be used to get sample values for each bin only if fit was not performed
+            # if fit was performed -> we can get sample values from result
+            _, prefit_unc, _ = self.get_yields(obs_var, observables, channel_pdf, result, prefit = True) # get prefit uncert for histogram
 
             self.hs_stacks += [ROOT.THStack("hs" + str(channel.GetName()), "hs" + str(channel.GetName()))]
             sample_histograms = []
