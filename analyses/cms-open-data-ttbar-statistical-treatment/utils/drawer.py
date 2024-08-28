@@ -185,6 +185,80 @@ class DrawModel:
         self.error_graphs = []
         self.error_pre_graphs = []
 
+    def __del__(self):
+        for i in self.cv_array:
+            del i
+        for i in self.hs_stacks:
+            name = i.GetName()
+            existing_hist = ROOT.gDirectory.Get(name)
+            if existing_hist:
+                # If the histogram exists, delete it to avoid memory leak
+                ROOT.gDirectory.Delete(name) # delete histogram from ROOT directory
+            del i
+        for i in self.sample_histograms:
+            name = i.GetName()
+            existing_hist = ROOT.gDirectory.Get(name)
+            if existing_hist:
+                # If the histogram exists, delete it to avoid memory leak
+                ROOT.gDirectory.Delete(name) # delete histogram from ROOT directory
+            del i
+        for i in self.bias_graphs:
+            name = i.GetName()
+            existing_hist = ROOT.gDirectory.Get(name)
+            if existing_hist:
+                # If the histogram exists, delete it to avoid memory leak
+                ROOT.gDirectory.Delete(name) # delete histogram from ROOT directory
+            del i
+        for i in self.bias_second_graphs:
+            name = i.GetName()
+            existing_hist = ROOT.gDirectory.Get(name)
+            if existing_hist:
+                # If the histogram exists, delete it to avoid memory leak
+                ROOT.gDirectory.Delete(name) # delete histogram from ROOT directory
+            del i
+        for i in self.normal_lines:
+            name = i.GetName()
+            existing_hist = ROOT.gDirectory.Get(name)
+            if existing_hist:
+                # If the histogram exists, delete it to avoid memory leak
+                ROOT.gDirectory.Delete(name) # delete histogram from ROOT directory
+            del i
+        for i in self.second_histos:
+            name = i.GetName()
+            existing_hist = ROOT.gDirectory.Get(name)
+            if existing_hist:
+                # If the histogram exists, delete it to avoid memory leak
+                ROOT.gDirectory.Delete(name) # delete histogram from ROOT directory
+            del i
+        for i in self.second_hs_stacks:
+            name = i.GetName()
+            existing_hist = ROOT.gDirectory.Get(name)
+            if existing_hist:
+                # If the histogram exists, delete it to avoid memory leak
+                ROOT.gDirectory.Delete(name) # delete histogram from ROOT directory
+            del i
+        for i in self.afterfit_histograms:
+            name = i.GetName()
+            existing_hist = ROOT.gDirectory.Get(name)
+            if existing_hist:
+                # If the histogram exists, delete it to avoid memory leak
+                ROOT.gDirectory.Delete(name) # delete histogram from ROOT directory
+            del i
+        for i in self.error_graphs:
+            name = i.GetName()
+            existing_hist = ROOT.gDirectory.Get(name)
+            if existing_hist:
+                # If the histogram exists, delete it to avoid memory leak
+                ROOT.gDirectory.Delete(name) # delete histogram from ROOT directory
+            del i
+        for i in self.error_pre_graphs:
+            name = i.GetName()
+            existing_hist = ROOT.gDirectory.Get(name)
+            if existing_hist:
+                # If the histogram exists, delete it to avoid memory leak
+                ROOT.gDirectory.Delete(name) # delete histogram from ROOT directory
+            del i
+
     def get_yields(self, variable, observables, pdf, result, prefit = False):
 
         yields = np.zeros(variable.numBins())
@@ -370,6 +444,11 @@ class DrawModel:
                 
         return yields, yields_uncert, sample_values
     
+    def CheckName(self, name):
+        existing_object = ROOT.gDirectory.Get(name)
+        if existing_object:
+            ROOT.gDirectory.Delete(name) # delete histogram from ROOT directory
+
     def Draw(self, result, no_fit = False):
         self.boxes = []
         self.error_boxes = []
@@ -382,15 +461,30 @@ class DrawModel:
 
             divide_value = 0.3 # divide canvas into 4 pads: prefit histogram, postfit histogram, prefit data/bin_value, postfit data/bin_value
 
-            self.cv_array += [ROOT.TCanvas("canvas" +  str(channel.GetName()), "canvas" +  str(channel.GetName()), 1500, 600)]
-            pad1_upper = ROOT.TPad("pad1_upper" + str(channel.GetName()), "pad1_upper" + str(channel.GetName()), 0, divide_value, 0.5, 1)
+            canvas_name = "canvas_" + str(channel.GetName())
+            
+            self.CheckName(canvas_name) # check if canvas with same name already exists -> delete it
+
+            self.cv_array += [ROOT.TCanvas(canvas_name, canvas_name, 1500, 600)]
+
+            pad1_upper_name = "pad1_upper" + str(channel.GetName())
+            self.CheckName(pad1_upper_name) # check if pad with same name already exists -> delete it
+            pad1_upper = ROOT.TPad(pad1_upper_name, pad1_upper_name, 0, divide_value, 0.5, 1)
             pad1_upper.Draw()
-            pad1_bottom = ROOT.TPad("pad1_bottom" + str(channel.GetName()), "pad1_bottom" + str(channel.GetName()), 0, 0, 0.5, divide_value)
+
+            pad1_bottom_name = "pad1_bottom" + str(channel.GetName())
+            self.CheckName(pad1_bottom_name) # check if pad with same name already exists -> delete it
+            pad1_bottom = ROOT.TPad(pad1_bottom_name, pad1_bottom_name, 0, 0, 0.5, divide_value)
             pad1_bottom.Draw()
 
-            pad2_upper = ROOT.TPad("pad2_upper" + str(channel.GetName()), "pad2_upper" + str(channel.GetName()), 0.5, divide_value, 1, 1)
+            pad2_upper_name = "pad2_upper" + str(channel.GetName())
+            self.CheckName(pad2_upper_name) # check if pad with same name already exists -> delete it
+            pad2_upper = ROOT.TPad(pad2_upper_name, pad2_upper_name, 0.5, divide_value, 1, 1)
             pad2_upper.Draw()
-            pad2_bottom = ROOT.TPad("pad2_bottom" + str(channel.GetName()), "pad2_bottom" + str(channel.GetName()), 0.5, 0, 1, divide_value)    
+
+            pad2_bottom_name = "pad2_bottom" + str(channel.GetName())
+            self.CheckName(pad2_bottom_name) # check if pad with same name already exists -> delete it
+            pad2_bottom = ROOT.TPad(pad2_bottom_name, pad2_bottom_name, 0.5, 0, 1, divide_value)    
             pad2_bottom.Draw()
             pad1_upper.cd()
 
@@ -398,7 +492,9 @@ class DrawModel:
             # if fit was performed -> we can get sample values from result
             _, prefit_unc, _ = self.get_yields(obs_var, observables, channel_pdf, result, prefit = True) # get prefit uncert for histogram
 
-            self.hs_stacks += [ROOT.THStack("hs" + str(channel.GetName()), "hs" + str(channel.GetName()))]
+            hs_stack_name = "hs" + str(channel.GetName())
+            self.CheckName(hs_stack_name) # check if THStack with same name already exists -> delete it
+            self.hs_stacks += [ROOT.THStack(hs_stack_name, hs_stack_name)]
             sample_histograms = []
 
             original_sample_bin_values = [0] * channel.GetData().GetHisto().GetNbinsX()
@@ -514,12 +610,19 @@ class DrawModel:
             else:
                 postfit_yields, postfit_yields_uncert, postfit_sample_values = self.get_yields(obs_var, observables, channel_pdf, result, prefit = False)
 
-            self.second_hs_stacks += [ROOT.THStack("fitted stack", "fitted stack")]
+            second_hs_stack_name = "fitted_stack_" + str(channel.GetName())
+            self.CheckName(second_hs_stack_name)
+            self.second_hs_stacks += [ROOT.THStack(second_hs_stack_name, second_hs_stack_name)]
 
             color_number = 0
 
             for postfit in postfit_sample_values:
-                temp_histo = ROOT.TH1F(channel_name + "afterfit" + str(postfit), channel_name + "afterfit" + str(postfit), len(postfit_yields), minimal_bin_value, maximum_bin_value)
+
+                # If the histogram exists, delete it to avoid memory leak
+                histogram_name = channel_name + "afterfit" + str(postfit)
+                self.CheckName(histogram_name)
+
+                temp_histo = ROOT.TH1F(histogram_name, histogram_name, len(postfit_yields), minimal_bin_value, maximum_bin_value)
                 temp_histo.SetFillColor(self.predefined_colors[color_number])
                 color_number += 1
                 bin_index = 1
@@ -600,3 +703,12 @@ class DrawModel:
 
             self.cv_array[-1].SaveAs(channel.GetName() + "_histo.png")
             self.cv_array[-1].Draw()
+
+    def GetChannelPicture(self, channel_number):
+        return self.cv_array[channel_number]
+    
+    def GetChannelPrefitGraph(self, channel_number):
+        return self.hs_stacks[channel_number]
+
+    def GetChannelPostfitGraph(self, channel_number):
+        return self.second_hs_stacks[channel_number]
