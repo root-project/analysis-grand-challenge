@@ -19,7 +19,9 @@ class AGCInput:
 @dataclass
 class AGCResult:
     histo: Union[
-        ROOT.TH1D, ROOT.RDF.RResultPtr[ROOT.TH1D], ROOT.RDF.Experimental.RResultMap[ROOT.TH1D]
+        ROOT.TH1D,
+        ROOT.RDF.RResultPtr[ROOT.TH1D],
+        ROOT.RDF.Experimental.RResultMap[ROOT.TH1D],
     ]
     region: str
     process: str
@@ -57,13 +59,23 @@ def _tqdm_urlretrieve_hook(t: tqdm):
 
 def _cache_files(file_paths: list, cache_dir: str, remote_prefix: str):
     for url in file_paths:
-        out_path = Path(cache_dir) / url.removeprefix(remote_prefix).lstrip("/")
+        out_path = Path(cache_dir) / url.removeprefix(remote_prefix).lstrip(
+            "/"
+        )
         out_path.parent.mkdir(parents=True, exist_ok=True)
         if not out_path.exists():
             with tqdm(
-                unit="B", unit_scale=True, unit_divisor=1024, miniters=1, desc=out_path.name
+                unit="B",
+                unit_scale=True,
+                unit_divisor=1024,
+                miniters=1,
+                desc=out_path.name,
             ) as t:
-                urlretrieve(url, out_path.absolute(), reporthook=_tqdm_urlretrieve_hook(t))
+                urlretrieve(
+                    url,
+                    out_path.absolute(),
+                    reporthook=_tqdm_urlretrieve_hook(t),
+                )
 
 
 def retrieve_inputs(
@@ -87,7 +99,9 @@ def retrieve_inputs(
             continue  # skip data
 
         for variation, sample_info in process_spec.items():
-            sample_info = sample_info["files"]  # this is now a list of (filename, nevents) tuples
+            sample_info = sample_info[
+                "files"
+            ]  # this is now a list of (filename, nevents) tuples
 
             if max_files_per_sample is not None:
                 sample_info = sample_info[:max_files_per_sample]
@@ -98,16 +112,22 @@ def retrieve_inputs(
             if remote_data_prefix is not None:
                 assert all(f.startswith(prefix) for f in file_paths)
                 old_prefix, prefix = prefix, remote_data_prefix
-                file_paths = [f.replace(old_prefix, prefix) for f in file_paths]
+                file_paths = [
+                    f.replace(old_prefix, prefix) for f in file_paths
+                ]
 
             if data_cache is not None:
                 assert all(f.startswith(prefix) for f in file_paths)
                 _cache_files(file_paths, data_cache, prefix)
                 old_prefix, prefix = prefix, str(Path(data_cache).absolute())
-                file_paths = [f.replace(old_prefix, prefix) for f in file_paths]
+                file_paths = [
+                    f.replace(old_prefix, prefix) for f in file_paths
+                ]
 
             nevents = sum(f["nevts"] for f in sample_info)
-            input_files.append(AGCInput(file_paths, process, variation, nevents))
+            input_files.append(
+                AGCInput(file_paths, process, variation, nevents)
+            )
 
     return input_files
 
@@ -124,11 +144,19 @@ def postprocess_results(results: list[AGCResult]):
             # just extract the histogram from the RResultPtr
             h = res.histo.GetValue()
             new_results.append(
-                AGCResult(h, res.region, res.process, res.variation, res.nominal_histo)
+                AGCResult(
+                    h,
+                    res.region,
+                    res.process,
+                    res.variation,
+                    res.nominal_histo,
+                )
             )
         else:
             resmap = res.histo
-            assert hasattr(resmap, "GetKeys")  # RResultMap or distrdf equivalent
+            assert hasattr(
+                resmap, "GetKeys"
+            )  # RResultMap or distrdf equivalent
             # extract each histogram in the map
             for variation in resmap.GetKeys():
                 h = resmap[variation]
@@ -137,13 +165,55 @@ def postprocess_results(results: list[AGCResult]):
                 new_name = h.GetName().replace("nominal", variation_name)
                 h.SetName(new_name)
                 new_results.append(
-                    AGCResult(h, res.region, res.process, variation_name, res.nominal_histo)
+                    AGCResult(
+                        h,
+                        res.region,
+                        res.process,
+                        variation_name,
+                        res.nominal_histo,
+                    )
                 )
 
     return new_results
 
 
+def simplify_histo_name(name) -> str:
+    """Simplify histogram name by removing the process and nominal variation."""
+    if "_nominal" in name:
+        name = name.replace("_nominal", "")
+    if "_Jet" in name:
+        name = name.split("_Jet")[0]
+    if "_Weights" in name:
+        name = name.split("_Weights")[0]
+    return name
+
+
 def save_histos(results: list[ROOT.TH1D], output_fname: str):
     with ROOT.TFile.Open(output_fname, "recreate") as out_file:
+        names_list = []
         for result in results:
-            out_file.WriteObject(result, result.GetName().replace("_nominal", ""))
+            result.SetName(simplify_histo_name(result.GetName()))
+            out_file.WriteObject(result, result.GetName())
+            names_list.append(result.GetName())
+
+        if (
+            "4j1b_ttbar_ME_var" in names_list
+            and "4j1b_ttbar_PS_var" in names_list
+            and "4j1b_wjets" in names_list
+            and "4j2b_ttbar_ME_var" in names_list
+            and "4j2b_ttbar_PS_var" in names_list
+            and "4j2b_wjets" in names_list
+        ):
+            histogram_4j1b = out_file.Get("4j1b_wjets").Clone(
+                "4j1b_pseudodata"
+            )
+            histogram_4j1b.Add(out_file.Get("4j1b_ttbar_PS_var"), 0.5)
+            histogram_4j1b.Add(out_file.Get("4j1b_ttbar_ME_var"), 0.5)
+            out_file.WriteObject(histogram_4j1b, "4j1b_pseudodata")
+
+            histogram_4j2b = out_file.Get("4j2b_wjets").Clone(
+                "4j2b_pseudodata"
+            )
+            histogram_4j2b.Add(out_file.Get("4j2b_ttbar_PS_var"), 0.5)
+            histogram_4j2b.Add(out_file.Get("4j2b_ttbar_ME_var"), 0.5)
+            out_file.WriteObject(histogram_4j2b, "4j2b_pseudodata")

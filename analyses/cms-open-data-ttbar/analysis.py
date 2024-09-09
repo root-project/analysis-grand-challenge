@@ -4,17 +4,12 @@ from pathlib import Path
 from time import time
 from typing import Tuple
 
-from distributed import Client, get_worker, LocalCluster, SSHCluster
 import ml
-from plotting import save_ml_plots, save_plots
 import ROOT
-from utils import (
-    AGCInput,
-    AGCResult,
-    postprocess_results,
-    retrieve_inputs,
-    save_histos,
-)
+from distributed import Client, LocalCluster, SSHCluster, get_worker
+from plotting import save_ml_plots, save_plots
+from statistical import fit_histograms
+from utils import AGCInput, AGCResult, postprocess_results, retrieve_inputs, save_histos
 
 # Using https://atlas-groupdata.web.cern.ch/atlas-groupdata/dev/AnalysisTop/TopDataPreparation/XSection-MC15-13TeV.data
 # as a reference. Values are in pb.
@@ -90,7 +85,24 @@ def parse_args() -> argparse.Namespace:
         "--hosts",
         help="A comma-separated list of worker node hostnames. Only required if --scheduler=dask-ssh, ignored otherwise.",
     )
-    p.add_argument("-v", "--verbose", help="Turn on verbose execution logs.", action="store_true")
+    p.add_argument(
+        "-v",
+        "--verbose",
+        help="Turn on verbose execution logs.",
+        action="store_true",
+    )
+
+    p.add_argument(
+        "--statistical-validation",
+        help = argparse.SUPPRESS,
+        action="store_true",
+    )
+
+    p.add_argument(
+        "--no-fitting",
+        help="Do not run statistical validation part of the analysis.",
+        action="store_true",
+    )
 
     return p.parse_args()
 
@@ -109,7 +121,11 @@ def create_dask_client(scheduler: str, ncores: int, hosts: str, scheduler_addres
         sshc = SSHCluster(
             workers,
             connect_options={"known_hosts": None},
-            worker_options={"nprocs": ncores, "nthreads": 1, "memory_limit": "32GB"},
+            worker_options={
+                "nprocs": ncores,
+                "nthreads": 1,
+                "memory_limit": "32GB",
+            },
         )
         return Client(sshc)
 
@@ -128,7 +144,10 @@ def define_trijet_mass(df: ROOT.RDataFrame) -> ROOT.RDataFrame:
     df = df.Filter("Sum(Jet_btagCSVV2_cut > 0.5) > 1")
 
     # Build four-momentum vectors for each jet
-    df = df.Define("Jet_p4", "ConstructP4(Jet_pt_cut, Jet_eta_cut, Jet_phi_cut, Jet_mass_cut)")
+    df = df.Define(
+        "Jet_p4",
+        "ConstructP4(Jet_pt_cut, Jet_eta_cut, Jet_phi_cut, Jet_mass_cut)",
+    )
 
     # Build trijet combinations
     df = df.Define("Trijet_idx", "Combinations(Jet_pt_cut, 3)")
@@ -186,7 +205,7 @@ def book_histos(
         # pt_res_up(jet_pt) - jet resolution systematic
         df = df.Vary(
             "Jet_pt",
-            "ROOT::RVec<ROOT::RVecF>{Jet_pt*pt_scale_up(), Jet_pt*jet_pt_resolution(Jet_pt.size())}",
+            "ROOT::RVec<ROOT::RVecF>{Jet_pt*pt_scale_up(), Jet_pt*jet_pt_resolution(Jet_pt)}",
             ["pt_scale_up", "pt_res_up"],
         )
 
@@ -240,8 +259,7 @@ def book_histos(
     # Only one b-tagged region required
     # The observable is the total transvesre momentum
     # fmt: off
-    df4j1b = df.Filter("Sum(Jet_btagCSVV2_cut > 0.5) == 1")\
-               .Define("HT", "Sum(Jet_pt_cut)")
+    df4j1b = df.Filter("Sum(Jet_btagCSVV2_cut > 0.5) == 1").Define("HT", "Sum(Jet_pt_cut)")
     # fmt: on
 
     # Define trijet_mass observable for the 4j2b region (this one is more complicated)
@@ -251,20 +269,34 @@ def book_histos(
     results = []
     for df, observable, region in zip([df4j1b, df4j2b], ["HT", "Trijet_mass"], ["4j1b", "4j2b"]):
         histo_model = ROOT.RDF.TH1DModel(
-            name=f"{region}_{process}_{variation}", title=process, nbinsx=25, xlow=50, xup=550
+            name=f"{region}_{process}_{variation}",
+            title=process,
+            nbinsx=25,
+            xlow=50,
+            xup=550,
         )
         nominal_histo = df.Histo1D(histo_model, observable, "Weights")
 
         if variation == "nominal":
             results.append(
                 AGCResult(
-                    nominal_histo, region, process, variation, nominal_histo, should_vary=True
+                    nominal_histo,
+                    region,
+                    process,
+                    variation,
+                    nominal_histo,
+                    should_vary=True,
                 )
             )
         else:
             results.append(
                 AGCResult(
-                    nominal_histo, region, process, variation, nominal_histo, should_vary=False
+                    nominal_histo,
+                    region,
+                    process,
+                    variation,
+                    nominal_histo,
+                    should_vary=False,
                 )
             )
         print(f"Booked histogram {histo_model.fName}")
@@ -292,7 +324,12 @@ def book_histos(
         if variation == "nominal":
             ml_results.append(
                 AGCResult(
-                    nominal_histo, feature.name, process, variation, nominal_histo, should_vary=True
+                    nominal_histo,
+                    feature.name,
+                    process,
+                    variation,
+                    nominal_histo,
+                    should_vary=True,
                 )
             )
         else:
@@ -382,7 +419,10 @@ def run_distributed(
     with create_dask_client(args.scheduler, args.ncores, args.hosts, scheduler_address) as client:
         for input in inputs:
             df = ROOT.RDF.Experimental.Distributed.Dask.RDataFrame(
-                "Events", input.paths, daskclient=client, npartitions=args.npartitions
+                "Events",
+                input.paths,
+                daskclient=client,
+                npartitions=args.npartitions,
             )
             df._headnode.backend.distribute_unique_paths(
                 [
@@ -426,6 +466,10 @@ def main() -> None:
         # To only change the verbosity in a given scope, use ROOT.Experimental.RLogScopedVerbosity.
         ROOT.Detail.RDF.RDFLogChannel().SetVerbosity(ROOT.Experimental.ELogLevel.kInfo)
 
+    if args.statistical_validation:
+        fit_histograms(filename=args.output)
+        return
+
     inputs: list[AGCInput] = retrieve_inputs(
         args.n_max_files_per_sample, args.remote_data_prefix, args.data_cache
     )
@@ -456,6 +500,9 @@ def main() -> None:
         output_fname = args.output.split(".root")[0] + "_ml_inference.root"
         save_histos([r.histo for r in ml_results], output_fname=output_fname)
         print(f"Result histograms from ML inference step saved in file {output_fname}")
+
+    if not args.no_fitting:
+        fit_histograms(filename=args.output)
 
 
 if __name__ == "__main__":
