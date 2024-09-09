@@ -1,7 +1,7 @@
 [tool.ruff]
 # ignore long lines
-ignore = ["E501"]
-select = ["E", "F", "I", "N"]
+lint.ignore = ["E501", "N806", "N802", "N803"]
+lint.select = ["E", "F", "I", "N"]
 
 [tool.mypy]
 ignore_missing_imports = true

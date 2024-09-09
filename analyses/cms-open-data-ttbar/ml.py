@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import Tuple
 
 import ROOT
-
 from distributed import get_worker
 
 # histogram bin lower limit to use for each ML input feature

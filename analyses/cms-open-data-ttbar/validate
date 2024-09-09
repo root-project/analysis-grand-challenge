@@ -1,0 +1,53 @@
+#!/bin/bash
+
+# Check if a number of files is provided as an argument, otherwise default to 1
+NUM_FILES=${1:-1}
+
+# Check if input is 1, 5, or 10
+if [[ "$NUM_FILES" -eq 1 || "$NUM_FILES" -eq 5 || "$NUM_FILES" -eq 10 ]]; then
+    echo "Valid NUM_FILES: $NUM_FILES"
+else
+    echo "Error: Invalid input. Please use one of existing values: 1, 5, or 10."
+    exit 1
+fi
+
+# Define the remote data prefix and other paths
+REMOTE_DATA_PREFIX='root://eospublic.cern.ch//eos/root-eos/AGC'
+HISTOS_FILE="histograms.root"
+REFERENCE_HISTOS="reference/histos_${NUM_FILES}_file_per_process.json"
+
+# Function to check the status of the previous command and exit if failed
+check_status() {
+  if [ $? -ne 0 ]; then
+    echo "Test failed: $1"
+    exit 1
+  fi
+}
+
+# Step 1: Run Analysis
+echo "Running analysis with ${NUM_FILES} file(s)..."
+python analysis.py --n-max-files-per-sample ${NUM_FILES} --remote-data-prefix="${REMOTE_DATA_PREFIX}" --no-fitting
+check_status "Analysis failed"
+
+# Step 2: Run Validation for histograms
+echo "Running histograms validation"
+# Run the validation and check if grep produces matching output
+if python validate_histograms.py --histos "${HISTOS_FILE}" --reference "${REFERENCE_HISTOS}" | grep "All good!"; then
+  echo "Histograms validation passed: Output matches expected results."
+else
+  echo "Test failed: Histograms validation output does not match expected result."
+  exit 1
+fi
+
+# Step 3: Run Validation for fitting
+echo "Running fitting part of analysis"
+python analysis.py --n-max-files-per-sample ${NUM_FILES} --remote-data-prefix="${REMOTE_DATA_PREFIX}" --statistical-validation 
+if python ./reference/fitResults/validate_fit_result.py  --n-files-per-sample ${NUM_FILES} | grep "ERROR: Comparison failed."; then
+  echo "Test failed: fitResults validation output does not match expected result."
+  exit 1
+else
+  echo "Test passed: fitResults validation output matches expected result."
+fi
+
+echo "All tests passed successfully."
+

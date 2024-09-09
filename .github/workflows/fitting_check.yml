@@ -1,0 +1,61 @@
+name: Validate CMS Open Data ttbar analysis
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  run-cms-open-data-ttbar-analysis:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up ROOT environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dpkg-dev cmake g++ gcc binutils libx11-dev libncurses5-dev libssl-dev libxpm-dev \
+            libxft-dev libxml2-dev libz-dev libxext-dev python3-dev git libtbb-dev libgif-dev xrootd-client python3
+          pip install numpy plotting distributed tqdm uproot
+          wget  https://root.cern/download/root_v6.32.04.Linux-ubuntu22.04-x86_64-gcc11.4.tar.gz
+          tar -xzvf root_v6.32.04.Linux-ubuntu22.04-x86_64-gcc11.4.tar.gz
+          source root/bin/thisroot.sh
+          echo "ROOT is set up"
+
+      - name: Run Analysis
+        run: |
+          source root/bin/thisroot.sh
+          cd analyses/cms-open-data-ttbar/
+          ./validate | tee output.txt
+
+      - name: Compare histograms validation output with expected
+        id: histograms
+        run: |
+          cd analyses/cms-open-data-ttbar/
+          if grep -q "Test failed: Histograms validation output does not match expected result." output.txt; then
+            echo "Histograms validation failed."
+            echo "RESULT_HISTOGRAMS=fail" >> $GITHUB_ENV
+            exit 1
+          else
+            echo "Histograms validation passed."
+            echo "RESULT_HISTOGRAMS=pass" >> $GITHUB_ENV
+          fi
+          
+      - name: Run validation sequences for fitResults
+        id: fitresults
+        run: |
+          cd analyses/cms-open-data-ttbar/
+          if grep -q "Test failed: fitResults validation output does not match expected result." output.txt; then
+            echo "fitResults validation failed."
+            echo "RESULT_FITRESULTS=fail" >> $GITHUB_ENV
+            exit 1
+          else
+            echo "fitResults validation passed."
+            echo "RESULT_FITRESULTS=pass" >> $GITHUB_ENV
+          fi
+
